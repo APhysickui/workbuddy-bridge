@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+.runtime/
+docs/feasibility.md
+playground/
+node_modules/
+*.log
+.DS_Store
+*.pem
+*.key
+*.bundle
+*.zip
