@@ -20,30 +20,6 @@ npm --prefix /absolute/path/to/workbuddy-bridge run kimi -- --cwd "$PWD" --model
 
 不删除旧会话，也不要反复发送 `hi` 来重试压缩。退出旧客户端后执行启动命令。后续继续本项目 profile 的会话可以传 `--continue`；模型在此 profile 中的别名是 `workbuddy-bridge/<模型ID>`。
 
-## Herdr 实时 agent 状态
-
-Herdr 0.8.2 已内置 Kimi 集成，需要给实际使用的 Kimi profile 安装钩子。仅安装两个 CLI 并不会启用实时状态。
-
-使用本项目启动器时，在 Herdr pane 内运行 `npm run kimi` 就会自动安装官方集成。要单独配置、暂不调用模型，可执行：
-
-```sh
-npm run kimi:herdr
-```
-
-配置目标是 `.runtime/kimi-profile`。启动器重建配置或切换启动模型后会重新安装钩子，避免状态接入丢失；重复安装不会累积相同钩子。Herdr 不存在或安装失败时会提示，Kimi 的模型预检仍按原流程执行。
-
-如果启动方式是直接输入普通 `kimi`，请在普通终端执行：
-
-```sh
-herdr integration install kimi
-```
-
-这会给普通 Kimi 使用的 profile 安装集成；默认位置为 `~/.kimi-code`，若设置了 `KIMI_CODE_HOME` 则使用该目录。两个 profile 需要各自安装。安装后退出旧 Kimi，在 Herdr pane 中重新打开。
-
-官方钩子通过 Herdr 提供的 `HERDR_SOCKET_PATH` 和 `HERDR_PANE_ID` 报告状态：提交提示与执行工具时为 `working`，权限请求与 `AskUserQuestion` 为 `blocked`，回复结束或中断为 `idle`。会话开始时报告 session ID。不会发送提示词、工具输入或回复正文；Herdr 外部运行时不报告。
-
-本地验证覆盖 Herdr 0.8.2 安装、Kimi 2.1.1 配置解析、重复安装和 profile 重建，以及官方钩子的状态消息。状态消息测试使用模拟 socket，不修改真实 pane；侧栏显示需重启 Kimi 后在实际 Herdr 中确认。
-
 ## 验证范围
 
 ```sh

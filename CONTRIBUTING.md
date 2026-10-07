@@ -7,7 +7,7 @@ npm run check
 npm test
 ```
 
-协议和子进程测试使用 mock / fixture，不读取真实账号，也不消耗积分。安装了相应版本的 pi、Claude Code 或 Kimi Code 时，额外执行隔离的客户端兼容检查；缺少客户端时这些检查会跳过。Herdr / Kimi 集成测试在临时 profile 安装官方钩子，用模拟 socket 验证状态消息，不向真实 pane 报告。GitHub CI 验证不依赖客户端安装的测试。
+协议和子进程测试使用 mock / fixture，不读取真实账号，也不消耗积分。安装了相应版本的 pi 或 Claude Code 时，额外执行隔离的客户端兼容检查；缺少客户端时这些检查会跳过。GitHub CI 验证不依赖客户端安装的测试。
 
 真实验收需自行安装并登录官方 CodeBuddy，将 `.env` 配为 workbuddy，然后执行 `npm run integration:check`。这会发出真实模型请求并可能消耗积分。请区分 fixture 测试、客户端界面验证与真实账号端到端验收。
 
