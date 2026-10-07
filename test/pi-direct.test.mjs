@@ -64,6 +64,21 @@ test('pi direct provider returns CLI failures without network retries or a fallb
   assert.equal(client.isRetryableAssistantError(result), false);
 });
 
+test('pi displays an ordinary CLI answer with its usual coding tools enabled', async t => {
+  const client = await piClient(t);
+  if (!client) return;
+  const runtimeDir = await mkdtemp(join(tmpdir(), 'wb-pi-plain-'));
+  t.after(() => rm(runtimeDir, { recursive: true, force: true }));
+  const config = configFor(runtimeDir);
+  const adapter = new WorkBuddyAdapter(config, { prefixArgs: [fileURLToPath(new URL('./fixtures/fake-cli.mjs', import.meta.url)), 'plain-reply'] });
+  const provider = directPiProvider(config, adapter, client.api, client.createAssistantMessageEventStream);
+  const transcript = context();
+  transcript.messages[0].content = '你是谁';
+  const result = await provider.streamSimple(modelFor(provider), client.normalizeContext(transcript)).result();
+  assert.equal(result.stopReason, 'stop', result.errorMessage);
+  assert.deepEqual(result.content, [{ type: 'text', text: '我是 DeepSeek，可以帮你回答问题。' }]);
+});
+
 test('cancelling pi direct streaming cancels the CLI operation', async t => {
   const client = await piClient(t);
   if (!client) return;

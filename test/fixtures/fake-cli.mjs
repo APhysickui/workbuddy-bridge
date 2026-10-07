@@ -40,6 +40,9 @@ if (mode === 'hang') {
   assert.ok(prompt.includes('"name":"Read"'));
   console.log(JSON.stringify({ type: 'result', subtype: 'success', is_error: false,
     result: '{"text":"","tool_calls":[{"name":"Read","input":{"file_path":"hello.txt"}}]}' }));
+} else if (mode === 'plain-reply') {
+  console.log(JSON.stringify({ type: 'result', subtype: 'success', is_error: false,
+    result: '我是 DeepSeek，可以帮你回答问题。', usage: { input_tokens: 3, output_tokens: 5 } }));
 } else {
   console.log('harmless CLI startup line');
   const value = JSON.stringify({ type: 'result', subtype: 'success', is_error: false,

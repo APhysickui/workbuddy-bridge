@@ -90,7 +90,19 @@ npm --prefix /absolute/path/to/workbuddy-bridge run kimi -- --cwd "$PWD" --model
 
 Kimi 使用 Anthropic 文字与客户端工具入口，上下文和输出限制取自模型目录，Kimi K3 默认上下文为 300,000 tokens、最大输出为 32,000。不声明原生 thinking 或图片支持；辅助模型也使用启动时选定的 WorkBuddy 入口。通过 `/model` 选择同一 profile 中的其他模型。
 
-原来的 `~/.kimi-code` 配置与会话不修改。直接运行普通 `kimi` 仍使用原全局设置；以上启动器才使用本项目接入。详情及旧 8799 / 64K 配置的排查见 [Kimi 说明](docs/kimi.md)。真实文字和文件读取验收：`npm run kimi:check`，会发出真实请求。当前仅完成 Kimi 2.1.1 的隔离配置验证，真实调用和工具往返需自行验收。
+以上隔离启动器不修改 `~/.kimi-code` 的配置与会话。直接运行普通 `kimi` 时，要安装到它实际读取的配置：
+
+```sh
+npm run kimi:install               # 查看迁移方案，无模型请求
+npm run kimi:install -- --apply    # 备份并更新普通 Kimi 配置
+kimi
+```
+
+安装仅替换已知本地 WorkBuddy 提供商及其模型，保留其他提供商和用户 hook；原默认指向 WorkBuddy 时同时修正 thinking 和辅助模型。WorkBuddy 改用本项目端口上的 Anthropic 接口，模型预算取自目录。启动 hook 会在新会话开始时自动检查并启动桥接。本地桥接密钥写入用户的私有 Kimi 配置，不写进仓库。退出旧客户端后重开，避免继续使用旧会话的 64K 配置。
+
+如果 pi 提示工具 JSON 格式错误，或 Kimi 仍连旧端口，可在普通终端执行 `npm run local:repair`。它备份并迁移普通 Kimi 配置、重启桥接，然后核对 pi / Kimi 的真实文字回复和读取临时随机文件的结果，会消耗积分；只有全部通过才打印 `LOCAL_REPAIR_OK`。`npm run local:repair -- --plan` 只查看方案。
+
+详情及旧 8799 / 64K 配置的排查见 [Kimi 说明](docs/kimi.md)。隔离启动器的真实文字和文件读取验收：`npm run kimi:check`。配置解析与 fixture 测试不代表真实账号调用成功，联机结果以自己运行检查命令为准。
 
 ## 其他 API 客户端
 

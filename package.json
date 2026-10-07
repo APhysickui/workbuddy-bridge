@@ -22,6 +22,8 @@
     "pi:unify": "node scripts/unify-pi.mjs",
     "kimi": "node --env-file-if-exists=.env scripts/kimi.mjs",
     "kimi:check": "node --env-file-if-exists=.env scripts/kimi.mjs --check",
+    "kimi:install": "node --env-file-if-exists=.env scripts/kimi-install.mjs",
+    "local:repair": "node --env-file-if-exists=.env scripts/local-repair.mjs",
     "integration:check": "node --env-file-if-exists=.env scripts/integration-check.mjs",
     "bridge:stop": "node --env-file-if-exists=.env scripts/stop-bridge.mjs",
     "bridge:restart": "node --env-file-if-exists=.env scripts/restart-bridge.mjs",

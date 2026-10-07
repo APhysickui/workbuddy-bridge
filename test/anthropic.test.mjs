@@ -56,9 +56,19 @@ test('tool use and tool result round trip retains IDs and yields a final reply',
   assert.equal(result.content[0].text, 'WORKBUDDY_FILE_READ_OK');
 });
 
+test('ordinary replies work with optional tools even when the model returns plain text', () => {
+  for (const tools of [[], [tool]]) for (const type of ['auto', 'none']) {
+    const input = normalizeAnthropic({ ...body, tools, tool_choice: { type } }, config.models);
+    const result = parseAnthropicResult({ text: '我是 DeepSeek，可以帮你回答问题。', usage: { prompt_tokens: 1, completion_tokens: 5 } }, input);
+    assert.equal(result.stopReason, 'end_turn');
+    assert.deepEqual(result.content, [{ type: 'text', text: '我是 DeepSeek，可以帮你回答问题。' }]);
+    assert.equal(result.usage.completion_tokens, 5);
+  }
+});
+
 test('malformed, fabricated or schema-invalid tool calls fail explicitly', () => {
   const input = normalizeAnthropic(body, config.models);
-  for (const text of ['plain text', '{"text":"","tool_calls":[{"name":"DeleteEverything","input":{}}]}',
+  for (const text of ['{"text":"hi","tool_calls":', '```json\n{"text":"hi","tool_calls":\n```', '{"text":"","tool_calls":[{"name":"DeleteEverything","input":{}}]}',
     '{"text":"","tool_calls":[{"name":"Read","input":{"file_path":123}}]}', '{"text":"","tool_calls":[]}']) {
     assert.throws(() => parseAnthropicResult({ text }, input), { code: 'upstream_invalid_tool_protocol' });
   }
@@ -70,6 +80,9 @@ test('forced and disabled tool choices are enforced', () => {
   assert.throws(() => parseAnthropicResult({ text: '{"text":"","tool_calls":[{"name":"Read","input":{"file_path":"a"}}]}' }, input));
   const any = normalizeAnthropic({ ...body, tool_choice: { type: 'any' } }, config.models);
   assert.throws(() => parseAnthropicResult({ text: '{"text":"hi","tool_calls":[]}' }, any));
+  assert.throws(() => parseAnthropicResult({ text: 'I will read it.', usage: null }, any));
+  const required = normalizeAnthropic({ ...body, tool_choice: { type: 'tool', name: 'Read' } }, config.models);
+  assert.throws(() => parseAnthropicResult({ text: 'I will read it.' }, required));
 });
 
 test('Anthropic SSE tool arguments reconstruct and complete with tool_use', () => {

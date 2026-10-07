@@ -5,23 +5,25 @@ export const KIMI_CHECK_REPLY = 'KIMI_WORKBUDDY_OK';
 
 export function kimiAlias(id) { return `${KIMI_PROVIDER_ID}/${id}`; }
 
-export function kimiProfile(config, model) {
+export function kimiProfile(config, model, options = {}) {
   if (!config.models.has(model)) throw new Error('未知 WorkBuddy 模型；请运行 npm run models 查看。');
+  const provider = options.providerId ?? KIMI_PROVIDER_ID;
+  const alias = id => `${provider}/${id}`;
   const lines = [
     '# Generated WorkBuddy-only profile; global Kimi settings are not modified.',
-    `default_model = ${JSON.stringify(kimiAlias(model))}`,
+    `default_model = ${JSON.stringify(alias(model))}`,
     'telemetry = false',
     '', '[thinking]', 'enabled = false',
-    '', '[secondary_model]', `default_model = ${JSON.stringify(kimiAlias(model))}`,
+    '', '[secondary_model]', `default_model = ${JSON.stringify(alias(model))}`,
     '', '[model_catalog]', 'refresh_on_start = false',
-    '', `[providers.${KIMI_PROVIDER_ID}]`, 'type = "anthropic"',
+    '', `[providers.${provider}]`, 'type = "anthropic"',
     `base_url = "http://127.0.0.1:${config.port}"`,
-    'api_key_env = "WORKBUDDY_BRIDGE_API_KEY"'
+    options.includeApiKey ? `api_key = ${JSON.stringify(config.apiKey)}` : 'api_key_env = "WORKBUDDY_BRIDGE_API_KEY"'
   ];
   for (const [id, upstream] of config.models) {
     const entry = catalogModel(upstream);
-    lines.push('', `[models.${JSON.stringify(kimiAlias(id))}]`,
-      `provider = ${JSON.stringify(KIMI_PROVIDER_ID)}`,
+    lines.push('', `[models.${JSON.stringify(alias(id))}]`,
+      `provider = ${JSON.stringify(provider)}`,
       `model = ${JSON.stringify(id)}`,
       `display_name = ${JSON.stringify(modelDisplayName(config, id))}`,
       `max_context_size = ${catalogContextWindow(entry) ?? 64000}`,

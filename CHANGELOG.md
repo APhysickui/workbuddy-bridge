@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- 回退 Herdr 自动状态集成，优先修复客户端调用。
+- 修复 pi / Anthropic 入口把普通文字回复也强制解析为工具 JSON 的错误；保留工具名称、参数及强制工具选择检查。
+- 新增普通 Kimi 配置迁移，修正旧 8799 OpenAI 地址、thinking、辅助模型和预算，并通过启动 hook 自动启动本项目桥接。
+- 新增 `npm run local:repair`，备份并迁移配置、重启桥接、核对 pi / Kimi 的真实文字和文件读取结果；联机成功必须以该命令的实际结果为准。
+
 ## 0.1.1
 
 - 新增 Kimi Code 独立 profile 启动器及真实文字 / 文件读取检查命令。

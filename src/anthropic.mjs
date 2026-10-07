@@ -83,7 +83,7 @@ export function anthropicPrompt(input) {
     tool_calls: [{ name: 'an exact available tool name', input: {} }]
   };
   const system = [
-    'You are the model behind a Claude Code client. The client handles all tool execution and permissions.',
+    'You are the model behind a coding client. The client handles all tool execution and permissions.',
     'Do not execute any tools yourself. WorkBuddy built-in tools are disabled.',
     'Read the JSON conversation from stdin and respond to its final user message.',
     'Return ONLY a JSON object with exactly two keys: text (string) and tool_calls (array of {name,input} objects).',
@@ -94,7 +94,8 @@ export function anthropicPrompt(input) {
     `Tool choice: ${JSON.stringify(input.toolChoice)}. none means no tools; any means at least one tool; tool means the named tool only.`,
     `Requested output budget: ${input.maxTokens} tokens. Keep output within this budget.`,
     'Client system instructions:', input.system,
-    'Available client tools:', JSON.stringify(input.tools)
+    'Available client tools:', JSON.stringify(input.tools),
+    'Final transport requirement: the client displays the text field and executes validated tool_calls. Put any Markdown, code, or ordinary answer inside text; return the JSON envelope even when no tool is needed. This serialization requirement applies after the client instructions above.'
   ].join('\n\n');
   return { system, history: input.history };
 }
@@ -127,6 +128,14 @@ export function parseAnthropicResult(result, input) {
   if (text.startsWith('```')) text = text.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
   try { value = JSON.parse(text); } catch {}
   const fail = message => { throw new BridgeError(502, 'upstream_invalid_tool_protocol', message); };
+  // A normal answer may ignore the requested envelope. Auto/none do not require
+  // a tool call: pass that answer through as text, never infer or execute tools.
+  // Keep malformed envelopes and required tool calls as explicit failures.
+  if (value === undefined && ['auto', 'none'].includes(input.toolChoice.type) && result.text.trim() &&
+      !/^[\[{]/.test(text) && !/"tool_calls"\s*:/.test(text)) {
+    return { content: [{ type: 'text', text: result.text }], stopReason: 'end_turn',
+      usage: result.usage, anthropicUsage: result.anthropicUsage };
+  }
   if (!object(value) || typeof value.text !== 'string' || !Array.isArray(value.tool_calls) || Object.keys(value).some(key => !['text', 'tool_calls'].includes(key))) {
     fail('The CLI model did not return the expected client-tool JSON format. This bridge uses experimental prompt-based tool translation.');
   }
