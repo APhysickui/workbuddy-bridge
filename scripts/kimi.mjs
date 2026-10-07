@@ -1,10 +1,11 @@
-import { mkdir, writeFile, chmod, mkdtemp, rm } from 'node:fs/promises';
+import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readConfig } from '../src/config.mjs';
 import { ensureBridge, runClient } from '../src/launcher.mjs';
-import { kimiAlias, kimiProfile, kimiEnvironment, checkKimiUpstream, verifyKimiCheck, KIMI_CHECK_REPLY } from '../src/kimi-config.mjs';
+import { kimiAlias, kimiEnvironment, checkKimiUpstream, verifyKimiCheck, KIMI_CHECK_REPLY } from '../src/kimi-config.mjs';
+import { setupKimiProfile } from '../src/kimi-setup.mjs';
 
 const project = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const input = process.argv.slice(2);
@@ -27,13 +28,11 @@ try {
     } else if (input[i] !== '--check') forwarded.push(input[i]);
   }
   const profileDir = join(config.runtimeDir, 'kimi-profile');
-  const profile = kimiProfile(config, model);
   if (check && forwarded.length) throw new Error('kimi:check 不接收额外的 Kimi 会话参数。');
-  await mkdir(profileDir, { recursive: true, mode: 0o700 });
-  const path = join(profileDir, 'config.toml');
-  await writeFile(path, profile, { mode: 0o600 });
-  await chmod(path, 0o600);
   const env = kimiEnvironment(config, profileDir);
+  const herdr = await setupKimiProfile(config, model, profileDir, { env });
+  if (herdr.enabled) console.log('Herdr 实时 agent 状态已接入。');
+  else if (herdr.reason !== 'not_requested') console.error('Herdr 状态接入未启用；可执行 npm run kimi:herdr 检查。');
   await ensureBridge(project);
   console.log(`检查 WorkBuddy → ${model} 的真实短回复（可能消耗积分）；成功后才启动 Kimi。`);
   await checkKimiUpstream(config, model);

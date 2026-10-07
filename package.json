@@ -1,6 +1,6 @@
 {
   "name": "workbuddy-bridge",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "description": "Use WorkBuddy models in pi, Claude Code, Kimi Code and local API clients through the official CodeBuddy CLI",
@@ -22,6 +22,7 @@
     "pi:unify": "node scripts/unify-pi.mjs",
     "kimi": "node --env-file-if-exists=.env scripts/kimi.mjs",
     "kimi:check": "node --env-file-if-exists=.env scripts/kimi.mjs --check",
+    "kimi:herdr": "node --env-file-if-exists=.env scripts/kimi-herdr.mjs",
     "integration:check": "node --env-file-if-exists=.env scripts/integration-check.mjs",
     "bridge:stop": "node --env-file-if-exists=.env scripts/stop-bridge.mjs",
     "bridge:restart": "node --env-file-if-exists=.env scripts/restart-bridge.mjs",

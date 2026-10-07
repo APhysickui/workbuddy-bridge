@@ -92,6 +92,8 @@ Kimi 使用 Anthropic 文字与客户端工具入口，上下文和输出限制�
 
 原来的 `~/.kimi-code` 配置与会话不修改。直接运行普通 `kimi` 仍使用原全局设置；以上启动器才使用本项目接入。详情及旧 8799 / 64K 配置的排查见 [Kimi 说明](docs/kimi.md)。真实文字和文件读取验收：`npm run kimi:check`，会发出真实请求。当前仅完成 Kimi 2.1.1 的隔离配置验证，真实调用和工具往返需自行验收。
 
+在 Herdr pane 中运行启动器时，会自动安装官方 Kimi 状态钩子，报告工作、等待确认和空闲状态；每次重建 profile 后都会恢复钩子。也可先执行 `npm run kimi:herdr`，只配置状态集成，不启动模型请求。直接运行普通 `kimi` 的用户应执行 `herdr integration install kimi`，再退出旧 Kimi 并在 Herdr 中重新打开。详见 [Herdr 接入](docs/kimi.md#herdr-实时-agent-状态)。
+
 ## 其他 API 客户端
 
 ```sh
