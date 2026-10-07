@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+- 新增 Kimi Code 独立 profile 启动器及真实文字 / 文件读取检查命令。
+- 统一 Kimi 的桥接地址和模型预算，以 Anthropic 入口连接实验性客户端工具；不声明原生 thinking。
+- 启动前核对服务并验证真实短回复；新 profile 的辅助模型也设为选定 WorkBuddy 模型。
+- 补充旧会话超出 64K、旧 8799 地址和 secondary model 的排查说明。
+
 ## 0.1.0
 
 - 通过正常登录的官方 CodeBuddy CLI 调用 WorkBuddy 模型。

@@ -1,8 +1,8 @@
 # WorkBuddy Bridge
 
-通过已登录的官方 CodeBuddy CLI，在 **pi、Claude Code 和本地 API 客户端**中使用 WorkBuddy 模型。模型名称带 **（workbuddy）** 后缀，默认 **DeepSeek V4.1 Flash**，目录包含 19 个入口，涵盖 DeepSeek、GLM、Kimi、MiniMax、混元及官方自动档位。
+通过已登录的官方 CodeBuddy CLI，在 **pi、Claude Code、Kimi Code 和本地 API 客户端**中使用 WorkBuddy 模型。模型名称带 **（workbuddy）** 后缀，pi / Claude 默认 **DeepSeek V4.1 Flash**，Kimi 启动器默认 **Kimi K3**。目录包含 19 个入口，涵盖 DeepSeek、GLM、Kimi、MiniMax、混元及官方自动档位。
 
-A local, experimental bridge from the official CodeBuddy CLI to pi, Claude Code, and OpenAI/Anthropic-compatible text clients. Uses the CLI’s normal login; no desktop token extraction.
+A local, experimental bridge from the official CodeBuddy CLI to pi, Claude Code, Kimi Code, and OpenAI/Anthropic-compatible text clients. Uses the CLI’s normal login; no desktop token extraction.
 
 **实验版本。** 已有协议、进程和隔离客户端测试；真实账号端到端调用需要在自己的环境验收。WorkBuddy 工具调用通过提示转换，流式输出在 CLI 回复完成后发送。[兼容范围](docs/compatibility.md) · [模型及输入输出限制](docs/models.md) · [配置说明](docs/configuration.md)
 
@@ -71,6 +71,26 @@ claude --model claude-workbuddy-deepseek-v4.1-flash
 安装在本项目 `.claude/settings.local.json` 中启用 gateway model discovery 和启动 hook，保留原 Claude 模型菜单及默认档位。WorkBuddy 选择走官方 CLI，其余模型透传到原服务商。原认证只在运行时读取，不复制到项目。首次启动或更新先执行 `bridge:restart`，让服务在模型发现前就绪。
 
 **项目设置仅在本目录及其子目录生效。** 首次使用按 Claude 的正常流程完成项目信任。取消接入使用 `npm run claude:uninstall`。`npm run claude` 是单独的隔离调试启动器；普通使用按上面的流程直接运行 `claude`。
+
+## 使用 Kimi Code
+
+安装官方 Kimi Code 后，在项目目录运行：
+
+```sh
+npm run kimi
+```
+
+在任意工作目录启动，或切换模型：
+
+```sh
+npm --prefix /absolute/path/to/workbuddy-bridge run kimi -- --cwd "$PWD" --model kimi-k3-1
+```
+
+启动器自动检查并启动桥接，再用目标模型验证一次真实短回复；失败会停在具体错误，不打开一个无法调用的会话。预检会消耗积分。默认打开新会话，使用 `.runtime/kimi-profile`，不会自动恢复原 Kimi 账号下的旧会话。要继续这个 profile 中的会话，可传 `--continue`。
+
+Kimi 使用 Anthropic 文字与客户端工具入口，上下文和输出限制取自模型目录，Kimi K3 默认上下文为 300,000 tokens、最大输出为 32,000。不声明原生 thinking 或图片支持；辅助模型也使用启动时选定的 WorkBuddy 入口。通过 `/model` 选择同一 profile 中的其他模型。
+
+原来的 `~/.kimi-code` 配置与会话不修改。直接运行普通 `kimi` 仍使用原全局设置；以上启动器才使用本项目接入。详情及旧 8799 / 64K 配置的排查见 [Kimi 说明](docs/kimi.md)。真实文字和文件读取验收：`npm run kimi:check`，会发出真实请求。当前仅完成 Kimi 2.1.1 的隔离配置验证，真实调用和工具往返需自行验收。
 
 ## 其他 API 客户端
 

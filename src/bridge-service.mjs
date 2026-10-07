@@ -14,7 +14,7 @@ export async function readBridgeStatus(config, fetcher = fetch) {
     });
   } catch (error) {
     const codes = [error.cause?.code, ...(error.cause?.errors ?? []).map(value => value.code)];
-    if (codes.includes('EPERM') || codes.includes('EACCES')) throw new Error('当前执行环境不允许连接本地端口；请在普通 macOS 终端运行 claude 或 pi。');
+    if (codes.includes('EPERM') || codes.includes('EACCES')) throw new Error('当前执行环境不允许连接本地端口；请在普通终端运行对应的 Claude / pi / Kimi 启动命令。');
     if (codes.includes('ECONNREFUSED') || error.name === 'TimeoutError' || codes.includes('ECONNRESET')) return null;
     throw new Error('无法检查本地桥接服务，未自动启动替代服务。');
   }

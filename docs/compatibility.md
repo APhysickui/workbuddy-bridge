@@ -4,6 +4,7 @@
 | --- | --- | --- |
 | pi `workbuddy-cli` | 文字、模型列表、实验性客户端工具 | 依赖 pi 扩展 API；不需要本地服务 |
 | Claude Code | 模型发现、文字、实验性客户端工具、原服务商透传 | 需支持 gateway model discovery 的版本；设置默认仅作用于本项目 |
+| Kimi Code 启动器 | 独立 profile、19 个模型、启动预检、实验性客户端工具入口 | 仅完成 2.1.1 配置解析验证；真实会话与工具往返需验收 |
 | `POST /v1/messages` | 文字与实验性客户端工具，JSON / SSE | WorkBuddy 回复完成后才发送 SSE |
 | `POST /v1/messages/count_tokens` | WorkBuddy token 估算；原服务商透传 | 估算不等于官方账单用量 |
 | `POST /v1/chat/completions` | OpenAI 文字子集，JSON / SSE | 不支持工具、图片及完整 OpenAI 参数集 |
