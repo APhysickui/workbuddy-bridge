@@ -54,7 +54,7 @@ test('ordinary Kimi migration fixes the stale endpoint, protocol, thinking and s
   assert.equal(result.summary.models, config.models.size);
   assert.ok(!result.text.includes('8799') && !result.text.includes('old-test-key') && !result.text.includes('always_thinking'));
   assert.ok(result.text.includes('type = "anthropic"\nbase_url = "http://127.0.0.1:18765"'));
-  assert.ok(result.text.includes('[thinking]\nenabled = false'));
+  assert.ok(result.text.includes('[thinking]\nenabled = true'));
   assert.ok(result.text.includes('[secondary_model]\ndefault_model = "workbuddy/kimi-k3-1"'));
   assert.ok(result.text.includes('max_context_size = 300000'));
   assert.ok(result.text.includes('event = "SessionStart"'));

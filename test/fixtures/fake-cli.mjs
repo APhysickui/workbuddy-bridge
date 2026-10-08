@@ -11,6 +11,7 @@ assert.ok(args.includes('--no-session-persistence'));
 assert.ok(!args.includes('--dangerously-skip-permissions'));
 assert.equal(flag('--max-turns'), '1');
 assert.equal(flag('--output-format'), 'stream-json');
+assert.ok(args.includes('--include-partial-messages'));
 assert.equal(process.env.ANTHROPIC_BASE_URL, undefined);
 assert.equal(process.env.ANTHROPIC_API_KEY, undefined);
 assert.equal(process.env.CLAUDE_CODE_OAUTH_TOKEN, undefined);
@@ -28,6 +29,33 @@ if (mode === 'hang') {
   console.log(JSON.stringify({ type: 'result', subtype: 'error_during_execution', is_error: true, errors: ['quota exhausted private_key=DO_NOT_EXPOSE'] }));
 } else if (mode === 'large') {
   process.stdout.write('x'.repeat(3 * 1024 * 1024));
+} else if (mode.startsWith('thinking-')) {
+  if (mode === 'thinking-effort') assert.equal(flag('--effort'), 'high');
+  const event = event => console.log(JSON.stringify({ type: 'stream_event', event, parent_tool_use_id: null }));
+  event({ type: 'message_start', message: { role: 'assistant' } });
+  event({ type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '', signature: '' } });
+  event({ type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: '先核对🙂' } });
+  const secretMeta = { reasoning_detail: 'PRIVATE_METADATA_DO_NOT_EXPOSE', _meta: { api_key: 'PRIVATE_METADATA_DO_NOT_EXPOSE' } };
+  event({ type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: '再回答。' }, ...secretMeta });
+  event({ type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'fixture-signature' } });
+  event({ type: 'content_block_stop', index: 0 });
+  console.log(JSON.stringify({ type: 'assistant', parent_tool_use_id: null, message: { role: 'assistant', content: [
+    { type: 'thinking', thinking: '先核对🙂再回答。', signature: 'fixture-signature' },
+    { type: 'redacted_thinking', data: 'PRIVATE_METADATA_DO_NOT_EXPOSE' }
+  ] } }));
+  if (mode === 'thinking-hang') setInterval(() => {}, 1000);
+  else setTimeout(() => {
+    if (mode === 'thinking-fail') {
+      console.log(JSON.stringify({ type: 'result', is_error: true, errors: ['quota exhausted PRIVATE_METADATA_DO_NOT_EXPOSE'] }));
+      return;
+    }
+    const afterTool = messages.at(-1).content.some?.(block => block.type === 'tool_result');
+    const result = mode === 'thinking-tool' && !afterTool
+      ? { text: '', tool_calls: [{ name: 'read', input: { path: 'hello.txt' } }] }
+      : { text: 'THINKING_REPLY_OK', tool_calls: [] };
+    console.log(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, result: JSON.stringify(result),
+      usage: { input_tokens: 0, output_tokens: 5, cache_creation_input_tokens: 20, cache_read_input_tokens: 10 } }));
+  }, 200);
 } else if (mode === 'pi-roundtrip') {
   const result = messages.at(-1).content.some(block => block.type === 'tool_result')
     ? { text: 'PI_WORKBUDDY_OK', tool_calls: [] }

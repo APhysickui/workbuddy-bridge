@@ -87,3 +87,38 @@ test('Anthropic client tools pass through the CLI adapter and return validated t
   assert.equal(result.content[0].name, 'Read');
   assert.deepEqual(result.content[0].input, { file_path: 'hello.txt' });
 });
+
+test('CLI public thinking arrives before completion and snapshots do not duplicate it', async t => {
+  const adapter = await adapterFor(t, 'thinking-answer');
+  const input = normalizeAnthropic({ model: 'test', max_tokens: 1024,
+    messages: [{ role: 'user', content: 'Check and reply.' }] }, new Map([['test', 'test']]));
+  let finished = false;
+  const events = [];
+  const result = await adapter.completeAnthropic({ ...input, onThinking: event => {
+    assert.equal(finished, false);
+    events.push(event);
+  } }).then(result => { finished = true; return result; });
+  assert.deepEqual(events.map(event => event.type), ['start', 'delta', 'signature', 'stop']);
+  assert.deepEqual(result.content, [
+    { type: 'thinking', thinking: '先核对🙂再回答。', signature: 'fixture-signature' },
+    { type: 'text', text: 'THINKING_REPLY_OK' }
+  ]);
+  assert.ok(!JSON.stringify(result).includes('PRIVATE_METADATA'));
+});
+
+test('nonpartial CLI assistant thinking is retained without fabricating a signature', () => {
+  const lines = [
+    { type: 'assistant', parent_tool_use_id: 'child-tool', message: { content: [{ type: 'thinking', thinking: 'CHILD_REASONING' }] } },
+    { type: 'assistant', message: { content: [{ type: 'thinking', thinking: 'Public explanation.' },
+      { type: 'redacted_thinking', data: 'OPAQUE_PAYLOAD' }, { type: 'text', text: 'hi' }] } },
+    { type: 'result', subtype: 'success', result: 'hi' }
+  ].map(value => JSON.stringify(value)).join('\n');
+  assert.deepEqual(parseCliResult(lines).thinking, [{ type: 'thinking', thinking: 'Public explanation.', signature: '' }]);
+});
+
+test('explicit supported Anthropic effort reaches the official CLI argument', async t => {
+  const adapter = await adapterFor(t, 'thinking-effort');
+  const request = normalizeAnthropic({ model: 'test', max_tokens: 1024, output_config: { effort: 'high' },
+    messages: [{ role: 'user', content: 'Check and reply.' }] }, new Map([['test', 'test']]));
+  assert.equal((await adapter.completeAnthropic(request)).stopReason, 'end_turn');
+});

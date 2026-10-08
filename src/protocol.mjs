@@ -52,7 +52,8 @@ export function normalize(body, kind, models) {
 export function chatCompletion(id, model, result, created) {
   return {
     id, object: 'chat.completion', created, model,
-    choices: [{ index: 0, message: { role: 'assistant', content: result.text }, finish_reason: 'stop' }],
+    choices: [{ index: 0, message: { role: 'assistant', content: result.text,
+      ...(result.thinking?.length ? { reasoning_content: result.thinking.map(block => block.thinking).join('\n\n') } : {}) }, finish_reason: 'stop' }],
     ...(result.usage ? { usage: result.usage } : {})
   };
 }
@@ -76,6 +77,7 @@ export function* chatEvents(id, model, result, created, includeUsage) {
   const chunk = (delta, finish = null, choices = true) => ({ id, object: 'chat.completion.chunk', created, model,
     choices: choices ? [{ index: 0, delta, finish_reason: finish }] : [], ...(includeUsage ? { usage: null } : {}) });
   yield { data: chunk({ role: 'assistant', content: '' }) };
+  for (const block of result.thinking ?? []) for (const reasoning of pieces(block.thinking)) yield { data: chunk({ reasoning_content: reasoning }) };
   for (const text of pieces(result.text)) yield { data: chunk({ content: text }) };
   yield { data: chunk({}, 'stop') };
   if (includeUsage) yield { data: { ...chunk({}, null, false), usage: result.usage } };

@@ -13,6 +13,9 @@ const all = JSON.stringify(history);
 if (all.includes('SIMULATE_EMPTY_CLI')) process.exit(0);
 const model = args[args.indexOf('--model') + 1];
 console.log(JSON.stringify({ type: 'system', subtype: 'init', model }));
+if (all.includes('SIMULATE_THINKING')) console.log(JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: [
+  { type: 'thinking', thinking: 'PI_REVIEWABLE_THINKING', signature: '' }
+] } }));
 const toolResults = history.flatMap(message => Array.isArray(message.content) ? message.content.filter(block => block.type === 'tool_result') : []);
 let result;
 if (toolResults.length) {

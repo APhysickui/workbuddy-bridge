@@ -23,6 +23,28 @@ test('Anthropic tools normalize to a prompt protocol and preserve model identity
   assert.ok(result.content[0].id.startsWith('toolu_'));
 });
 
+test('thinking history survives tool continuation, while redacted payloads do not enter the prompt', () => {
+  const thinking = { type: 'thinking', thinking: 'I should read the file.', signature: '' };
+  const input = normalizeAnthropic({ ...body, messages: [body.messages[0], { role: 'assistant', content: [thinking,
+    { type: 'redacted_thinking', data: 'OPAQUE_PAYLOAD' },
+    { type: 'tool_use', id: 'read-1', name: 'Read', input: { file_path: 'hello.txt' } }] },
+    { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'read-1', content: 'file contents' }] }] }, config.models);
+  assert.deepEqual(input.history[1].content[0], thinking);
+  assert.ok(!JSON.stringify(input).includes('OPAQUE_PAYLOAD'));
+  assert.throws(() => normalizeAnthropic({ ...body, messages: [{ role: 'user', content: [thinking] }] }, config.models));
+  assert.throws(() => parseAnthropicResult({ text: '{"text":"","tool_calls":[]}', thinking: [thinking] }, input), /neither text nor tool calls/);
+});
+
+test('nonstreaming and buffered Anthropic outputs retain public thinking and real signatures', () => {
+  const thinking = { type: 'thinking', thinking: '公开说明🙂', signature: 'upstream-signature' };
+  const input = normalizeAnthropic(body, config.models);
+  const result = parseAnthropicResult({ text: 'Reply.', thinking: [thinking] }, input);
+  assert.deepEqual(anthropicMessage('msg_test', 'deepseek-v4-flash', result).content, [thinking, { type: 'text', text: 'Reply.' }]);
+  const events = [...anthropicEvents('msg_test', 'deepseek-v4-flash', result)].map(event => event.data);
+  assert.equal(events.filter(event => event.delta?.type === 'thinking_delta').map(event => event.delta.thinking).join(''), thinking.thinking);
+  assert.equal(events.find(event => event.delta?.type === 'signature_delta').delta.signature, thinking.signature);
+});
+
 test('system and developer messages become instructions without losing user history', () => {
   const input = normalizeAnthropic({ ...body, messages: [
     { role: 'system', content: 'Additional system instruction.' },

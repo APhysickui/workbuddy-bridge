@@ -9,6 +9,7 @@
 | `BRIDGE_API_KEY` | 本地 HTTP 认证，至少 24 个无空白字符；由 init 随机生成 |
 | `BRIDGE_PORT` | HTTP 端口，示例为 18765；监听固定为 127.0.0.1 |
 | `BRIDGE_TIMEOUT_MS` | 单次 WorkBuddy 调用超时，init 为 120000，范围 1000–300000 |
+| `BRIDGE_REASONING_EFFORT` | CLI 默认推理 effort，默认 `low`；可选 `minimal` / `low` / `medium` / `high` / `xhigh` / `max`，具体效果和积分以模型为准 |
 | `BRIDGE_MAX_BODY_BYTES` | 请求大小上限，init 为 2097152，最高 4 MiB |
 | `BRIDGE_MODELS` | 逗号分隔的 `公开ID=官方ID`；默认加载完整目录 |
 | `BRIDGE_CLAUDE_MODEL` | 便捷启动器及 Claude 自定义项的模型 ID，默认 V4.1 Flash |
@@ -23,4 +24,4 @@ Claude 透传在运行时读取 `~/.claude/settings.json` 的原服务商 URL �
 
 pi 扩展读取本项目 `.env`，通过 `workbuddy-cli` provider 在进程内调用 CLI，无需 HTTP 端口。`npm run pi:unify` 只查看全局迁移方案；`npm run pi:unify -- --apply` 才写入 `~/.pi/agent`，备份位于该目录的 `workbuddy-bridge-backups/`。安装后保留项目目录位置；移动项目后需重新注册扩展。
 
-修改 `.env` 后，HTTP 客户端应运行 `npm run bridge:restart`；pi 应 `/reload` 或退出重开。服务核对密钥、协议、CLI 路径及模型配置，配置不匹配时拒绝复用旧服务。认证关闭使用 `npm run bridge:stop`。
+修改 `.env` 后，HTTP 客户端应运行 `npm run bridge:restart`；pi 应 `/reload` 或退出重开。服务核对密钥、协议、CLI 路径、推理 effort 及模型配置，配置不匹配时拒绝复用旧服务。认证关闭使用 `npm run bridge:stop`。

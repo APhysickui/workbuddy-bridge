@@ -32,7 +32,8 @@ test('the default model menu uses official CLI context defaults and model-specif
   for (const model of models.values()) {
     assert.ok(model.name.endsWith('（workbuddy）'));
     assert.deepEqual(model.input, ['text']);
-    assert.equal(model.reasoning, false); // The bridge cannot return native thinking blocks.
+    assert.equal(model.reasoning, true); // Render public CLI thinking when available.
+    assert.equal(model.compat.allowEmptySignature, true);
   }
   assert.equal(models.get('deepseek-v4.1-flash').contextWindow, 300000);
   assert.equal(catalogModel('deepseek-v4.1-flash').maxInputTokens, 1000000);

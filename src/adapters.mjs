@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BridgeError } from './errors.mjs';
 import { anthropicPrompt, parseAnthropicResult } from './anthropic.mjs';
+import { CliThinking } from './cli-thinking.mjs';
 
 export class MockAdapter {
   async complete({ messages, signal }) {
@@ -40,6 +41,7 @@ export function parseCliResult(stdout) {
   }
   let result;
   let model;
+  const thinking = new CliThinking();
   try {
     const value = JSON.parse(stdout);
     if (value?.type === 'result') result = value;
@@ -48,6 +50,7 @@ export function parseCliResult(stdout) {
     for (const line of stdout.split(/\r?\n/)) {
       try {
         const value = JSON.parse(line);
+        thinking.read(value);
         if (value?.type === 'system' && value.subtype === 'init' && typeof value.model === 'string') model = value.model;
         if (value?.type === 'result') result = value;
       } catch {}
@@ -69,21 +72,23 @@ export function parseCliResult(stdout) {
     ? { prompt_tokens: prompt, completion_tokens: output, total_tokens: prompt + output,
       ...(read || creation ? { prompt_tokens_details: { cached_tokens: read } } : {}) }
     : null;
+  const thinkingBlocks = thinking.blocks();
   return { text: result.result, usage, model,
+    ...(thinkingBlocks.length ? { thinking: thinkingBlocks } : {}),
     ...(usage && (read || creation) ? { anthropicUsage: {
       input_tokens: input, output_tokens: output,
       cache_read_input_tokens: read, cache_creation_input_tokens: creation
     } } : {}) };
 }
 
-export function cliArgs(model, systemPromptFile) {
+export function cliArgs(model, systemPromptFile, effort = 'low') {
   return [
-    '--print', '--output-format', 'stream-json', '--verbose',
+    '--print', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     '--tools', '',
     '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
     '--setting-sources', 'none', '--settings', '{"disableAllHooks":true,"enabledPlugins":{}}',
     '--no-session-persistence', '--max-turns', '1',
-    '--permission-mode', 'plan', '--model', model, '--effort', 'low',
+    '--permission-mode', 'plan', '--model', model, '--effort', effort,
     '--system-prompt-file', systemPromptFile
   ];
 }
@@ -108,11 +113,12 @@ export class WorkBuddyAdapter {
 
   async completeAnthropic(input) {
     const prompt = anthropicPrompt(input);
-    const result = await this.invoke({ model: input.model, systemPrompt: prompt.system, history: prompt.history, signal: input.signal });
+    const result = await this.invoke({ model: input.model, systemPrompt: prompt.system, history: prompt.history,
+      signal: input.signal, onThinking: input.onThinking, effort: input.effort });
     return parseAnthropicResult(result, input);
   }
 
-  async invoke({ model, systemPrompt, history, signal }) {
+  async invoke({ model, systemPrompt, history, signal, onThinking, effort }) {
     await mkdir(this.config.runtimeDir, { recursive: true, mode: 0o700 });
     if (signal?.aborted) throw new BridgeError(499, 'cancelled', 'Request cancelled');
     const requestDir = await mkdtemp(join(this.config.runtimeDir, 'request-'));
@@ -121,7 +127,7 @@ export class WorkBuddyAdapter {
       await writeFile(promptFile, systemPrompt, { mode: 0o600 });
       const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('ANTHROPIC_') && !key.startsWith('CLAUDE_')));
       return await new Promise((resolve, reject) => {
-      const child = spawn(this.command, [...this.prefixArgs, ...cliArgs(model, promptFile)], {
+      const child = spawn(this.command, [...this.prefixArgs, ...cliArgs(model, promptFile, effort ?? this.config.reasoningEffort ?? 'low')], {
         cwd: this.config.runtimeDir,
         env,
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -134,6 +140,8 @@ export class WorkBuddyAdapter {
       let lines = '';
       let failure;
       let killTimer;
+      let modelVerified = model === 'auto';
+      const thinking = new CliThinking(event => { if (modelVerified && !failure) onThinking?.(event); });
       const kill = force => {
         try {
           if (process.platform === 'win32') child.kill(force ? 'SIGKILL' : 'SIGTERM');
@@ -176,6 +184,8 @@ export class WorkBuddyAdapter {
             if (model !== 'auto' && value?.type === 'system' && value.subtype === 'init' && value.model !== model) {
               stop(new BridgeError(502, 'upstream_model_mismatch', 'CLI selected a different model. The request was stopped; no fallback is accepted.'));
             }
+            if (value?.type === 'system' && value.subtype === 'init' && value.model === model) modelVerified = true;
+            thinking.read(value);
           }
         }
         else stderr += chunk;

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 保留 CodeBuddy CLI 公开 thinking 块和真实签名，实时转发 Anthropic thinking 增量；pi 本地传输改为流式读取，支持会话保存与 HTML 复查。
+- pi / Kimi 开放公开 thinking 显示；支持 CLI effort 配置与 pi reasoning 等级，默认仍为 low。最终工具 JSON 保持校验，推理后的失败和取消仍返回错误。
+
 - 修复 Kimi 2.1.1 检查命令中的 `--prompt` / `--yolo` 参数冲突，显示客户端明确的参数错误；新增 `--kimi-tools-only` 继续最后一项真实验收。
 
 - 回退 Herdr 自动状态集成，优先修复客户端调用。
@@ -24,4 +27,4 @@
 - 本地 Anthropic 与 OpenAI 文字接口、实验性客户端工具转换。
 - 认证服务管理、隔离测试、配置示例和 Node 22 / 24 CI。
 
-实验版本：真实账号兼容性需自行验收；WorkBuddy 流式输出采用缓冲发送，工具调用通过提示转换。
+实验版本：真实账号兼容性需自行验收；公开 thinking 增量实时发送，最终文字与工具调用在提示协议校验后发送。

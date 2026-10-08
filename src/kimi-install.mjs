@@ -123,7 +123,7 @@ export function planKimiInstallation(raw, config, project, nodePath) {
   };
   if (selectDefault) {
     setValue(sections[0], 'default_model', alias);
-    setTable('thinking', 'enabled', false);
+    setTable('thinking', 'enabled', true);
     setTable('secondary_model', 'default_model', alias);
   }
   const profile = kimiProfile(config, model, { providerId: provider, includeApiKey: true });
@@ -133,7 +133,7 @@ export function planKimiInstallation(raw, config, project, nodePath) {
   const startup = `${markerStart}\n[[hooks]]\nevent = "SessionStart"\ncommand = ${JSON.stringify(command)}\ntimeout = 15\n${markerEnd}\n`;
   return { text: sections.map(section => section.text.endsWith('\n') ? section.text : section.text + '\n').join('').trimEnd() + '\n\n' + managed.trimEnd() + '\n\n' + startup,
     summary: { provider, model, default: selectDefault ? alias : previous, api: 'anthropic', base_url: `http://127.0.0.1:${config.port}`,
-      models: config.models.size, removed_providers: [...owned], startup: 'start_authenticated_project_bridge', thinking: selectDefault ? false : 'preserved' } };
+      models: config.models.size, removed_providers: [...owned], startup: 'start_authenticated_project_bridge', thinking: selectDefault ? true : 'preserved' } };
 }
 
 export async function installKimi(kimiDir, config, project, nodePath, options = {}) {

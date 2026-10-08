@@ -10,7 +10,7 @@ npm --prefix /absolute/path/to/workbuddy-bridge run kimi -- --cwd "$PWD" --model
 
 启动器依次核对桥接身份、自动启动服务、验证目标模型的短回复，然后才打开 Kimi。读取本项目 `.env` 中的端口，默认 18765；本地密钥通过进程环境传入，profile 中不保存密钥。localhost / 127.0.0.1 始终排除在代理之外。
 
-模型目录包含 19 个入口，默认 Kimi K3 的上下文为 300,000 tokens、最大输出为 32,000。图片与原生 thinking 不开放，客户端工具仍是提示转换。profile 中只配置 WorkBuddy 提供商，并将辅助模型也设为启动时选定的入口，避免继承原配置中的另一个服务商。新会话无需携带旧会话的超限历史。
+模型目录包含 19 个入口，默认 Kimi K3 的上下文为 300,000 tokens、最大输出为 32,000。profile 开启 thinking 显示，桥接转发 CLI 公开返回的思考增量；有些模型或请求可能只返回答案。图片不支持，客户端工具仍是提示转换。profile 中只配置 WorkBuddy 提供商，并将辅助模型也设为启动时选定的入口。新会话无需携带旧会话的超限历史。
 
 ## `hi` 触发压缩或连接错误
 
@@ -28,7 +28,7 @@ npm --prefix /absolute/path/to/workbuddy-bridge run kimi -- --cwd "$PWD" --model
 npm run local:repair
 ```
 
-命令会备份并更新实际 `KIMI_CODE_HOME` 的 `config.toml`，未设置时是 `~/.kimi-code/config.toml`。识别并替换已知本地 WorkBuddy 提供商及其模型，保留其他提供商、认证和用户 hook。旧默认指向 WorkBuddy 时保留已启用的模型 ID，并将辅助模型设为同一入口、关闭 thinking；使用 19 个模型各自的上下文和输出预算。
+命令会备份并更新实际 `KIMI_CODE_HOME` 的 `config.toml`，未设置时是 `~/.kimi-code/config.toml`。识别并替换已知本地 WorkBuddy 提供商及其模型，保留其他提供商、认证和用户 hook。旧默认指向 WorkBuddy 时保留已启用的模型 ID，并将辅助模型设为同一入口、开启公开 thinking 的显示能力；使用 19 个模型各自的上下文和输出预算。已有用户在升级后运行 `npm run bridge:restart` 和 `npm run kimi:install -- --apply`，退出旧会话重开。
 
 普通 Kimi 使用 Anthropic 类型和本项目 `.env` 中的端口，不再读取 8799 的旧 OpenAI 入口。它需要直接读取认证，因此本地桥接密钥保存在用户的私有配置中。新增 `SessionStart` hook 自动检查并启动本项目桥接，不含 Herdr 状态集成。
 

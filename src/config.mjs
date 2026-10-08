@@ -17,6 +17,8 @@ export function readConfig(env = process.env) {
     throw new Error('Run npm run init first, or set BRIDGE_API_KEY to a random key of at least 24 characters');
   }
   const models = new Map();
+  const reasoningEffort = env.BRIDGE_REASONING_EFFORT ?? 'low';
+  if (!['minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) throw new Error('Invalid BRIDGE_REASONING_EFFORT');
   for (const entry of (env.BRIDGE_MODELS ?? DEFAULT_MODEL_ALIASES).split(',')) {
     const match = /^([a-zA-Z0-9_.-]+)=([a-zA-Z0-9_.-]+)$/.exec(entry.trim());
     if (!match || models.has(match[1])) throw new Error('Invalid or duplicate BRIDGE_MODELS entry');
@@ -28,6 +30,7 @@ export function readConfig(env = process.env) {
     host: '127.0.0.1',
     port: integer(env.BRIDGE_PORT, 18765, 1024, 65535, 'BRIDGE_PORT'),
     timeoutMs: integer(env.BRIDGE_TIMEOUT_MS, 60000, 1000, 300000, 'BRIDGE_TIMEOUT_MS'),
+    reasoningEffort,
     models,
     cliPath: env.CODEBUDDY_BIN ?? bundledCli,
     runtimeDir: resolve('.runtime'),

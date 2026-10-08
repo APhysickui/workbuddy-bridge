@@ -19,7 +19,7 @@ export function kimiProfile(config, model, options = {}) {
     '# Generated WorkBuddy-only profile; global Kimi settings are not modified.',
     `default_model = ${JSON.stringify(alias(model))}`,
     'telemetry = false',
-    '', '[thinking]', 'enabled = false',
+    '', '[thinking]', 'enabled = true',
     '', '[secondary_model]', `default_model = ${JSON.stringify(alias(model))}`,
     '', '[model_catalog]', 'refresh_on_start = false',
     '', `[providers.${provider}]`, 'type = "anthropic"',
@@ -34,7 +34,7 @@ export function kimiProfile(config, model, options = {}) {
       `display_name = ${JSON.stringify(modelDisplayName(config, id))}`,
       `max_context_size = ${catalogContextWindow(entry) ?? 64000}`,
       `max_output_size = ${entry?.maxOutputTokens ?? 4096}`,
-      'capabilities = ["tool_use"]');
+      'capabilities = ["thinking", "tool_use"]');
   }
   return lines.join('\n') + '\n';
 }

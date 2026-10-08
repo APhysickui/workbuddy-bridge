@@ -16,7 +16,7 @@ export function piProvider(config) {
       const model = catalogModel(upstreamId);
       return {
         id, name: modelDisplayName(config, id),
-        reasoning: false, input: ['text'],
+        reasoning: true, input: ['text'], compat: { allowEmptySignature: true },
         // Pi requires dollar rates. Zero is an unknown placeholder, not free credits.
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: catalogContextWindow(model) ?? 64000,

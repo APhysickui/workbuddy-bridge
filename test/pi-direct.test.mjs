@@ -94,3 +94,78 @@ test('cancelling pi direct streaming cancels the CLI operation', async t => {
   assert.equal((await stream.result()).stopReason, 'aborted');
   assert.equal(inputSignal.aborted, true);
 });
+
+test('pi SDK displays live thinking before the validated tool call and preserves the next turn', { timeout: 10000 }, async t => {
+  const client = await piClient(t);
+  if (!client) return;
+  const runtimeDir = await mkdtemp(join(tmpdir(), 'wb-pi-thinking-'));
+  t.after(() => rm(runtimeDir, { recursive: true, force: true }));
+  const config = configFor(runtimeDir);
+  const adapter = new WorkBuddyAdapter(config, { prefixArgs: [fileURLToPath(new URL('./fixtures/fake-cli.mjs', import.meta.url)), 'thinking-tool'] });
+  let cliFinished = false;
+  const observed = { completeAnthropic: async input => {
+    assert.equal(input.effort, 'high');
+    try { return await adapter.completeAnthropic(input); } finally { cliFinished = true; }
+  } };
+  const provider = directPiProvider(config, observed, client.api, client.createAssistantMessageEventStream);
+  const model = modelFor(provider);
+  const transcript = context();
+  const stream = provider.streamSimple(model, client.normalizeContext(transcript), { reasoning: 'high' });
+  let finished = false;
+  const final = stream.result().then(result => { finished = true; return result; });
+  const events = [];
+  for await (const event of stream) {
+    events.push(event);
+    if (event.type === 'thinking_delta') {
+      assert.equal(cliFinished, false, 'thinking was buffered until CLI completion');
+      assert.equal(finished, false, 'thinking was buffered until the final answer');
+    }
+  }
+  assert.equal(events.filter(event => event.type === 'thinking_start').length, 1);
+  assert.equal(events.filter(event => event.type === 'thinking_delta').map(event => event.delta).join(''), '先核对🙂再回答。');
+  const first = await final;
+  assert.equal(first.stopReason, 'toolUse', first.errorMessage);
+  assert.equal(first.content[0].type, 'thinking');
+  assert.equal(first.content[0].thinkingSignature, 'fixture-signature');
+  const tool = first.content.find(block => block.type === 'toolCall');
+  assert.deepEqual(tool.arguments, { path: 'hello.txt' });
+  assert.equal(first.usage.cacheWrite, 20);
+  assert.equal(first.usage.cacheRead, 10);
+  transcript.messages.push(first, { role: 'toolResult', toolCallId: tool.id, toolName: 'read',
+    content: [{ type: 'text', text: 'FILE_MARKER' }], isError: false, timestamp: Date.now() });
+  const last = await provider.streamSimple(model, client.normalizeContext(transcript), { reasoning: 'high' }).result();
+  assert.equal(last.stopReason, 'stop', last.errorMessage);
+  assert.equal(last.content.filter(block => block.type === 'text').map(block => block.text).join(''), 'THINKING_REPLY_OK');
+  assert.ok(!JSON.stringify(last).includes('PRIVATE_METADATA'));
+});
+
+test('a CLI failure after live thinking remains an error with safe diagnostics', { timeout: 10000 }, async t => {
+  const client = await piClient(t);
+  if (!client) return;
+  const runtimeDir = await mkdtemp(join(tmpdir(), 'wb-pi-thinking-failure-'));
+  t.after(() => rm(runtimeDir, { recursive: true, force: true }));
+  const adapter = new WorkBuddyAdapter(configFor(runtimeDir), { prefixArgs: [fileURLToPath(new URL('./fixtures/fake-cli.mjs', import.meta.url)), 'thinking-fail'] });
+  const provider = directPiProvider(configFor(runtimeDir), adapter, client.api, client.createAssistantMessageEventStream);
+  const result = await provider.streamSimple(modelFor(provider), client.normalizeContext(context())).result();
+  assert.equal(result.stopReason, 'error');
+  assert.match(result.errorMessage, /insufficient quota/);
+  assert.ok(!JSON.stringify(result).includes('PRIVATE_METADATA'));
+  assert.equal(client.isRetryableAssistantError(result), false);
+});
+
+test('cancellation while pi displays thinking aborts the live CLI stream', { timeout: 10000 }, async t => {
+  const client = await piClient(t);
+  if (!client) return;
+  const runtimeDir = await mkdtemp(join(tmpdir(), 'wb-pi-thinking-cancel-'));
+  t.after(() => rm(runtimeDir, { recursive: true, force: true }));
+  const adapter = new WorkBuddyAdapter(configFor(runtimeDir), { prefixArgs: [fileURLToPath(new URL('./fixtures/fake-cli.mjs', import.meta.url)), 'thinking-hang'] });
+  const provider = directPiProvider(configFor(runtimeDir), adapter, client.api, client.createAssistantMessageEventStream);
+  const controller = new AbortController();
+  const stream = provider.streamSimple(modelFor(provider), client.normalizeContext(context()), { signal: controller.signal });
+  let sawThinking = false;
+  for await (const event of stream) {
+    if (event.type === 'thinking_delta') { sawThinking = true; controller.abort(); }
+  }
+  assert.equal(sawThinking, true);
+  assert.equal((await stream.result()).stopReason, 'aborted');
+});

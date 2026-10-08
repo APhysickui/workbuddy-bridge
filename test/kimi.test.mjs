@@ -26,7 +26,7 @@ test('Kimi profile uses Anthropic tools, catalog budgets and a WorkBuddy seconda
     const section = profile.split(`[models."workbuddy-bridge/${model.id}"]\n`)[1].split('\n\n')[0];
     assert.ok(section.includes(`max_context_size = ${catalogContextWindow(model)}`));
     assert.ok(section.includes(`max_output_size = ${model.maxOutputTokens}`));
-    assert.ok(section.includes('capabilities = ["tool_use"]'));
+    assert.ok(section.includes('capabilities = ["thinking", "tool_use"]'));
   }
 });
 

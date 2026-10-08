@@ -90,7 +90,7 @@ npm --prefix /absolute/path/to/workbuddy-bridge run kimi -- --cwd "$PWD" --model
 
 启动器自动检查并启动桥接，再用目标模型验证一次真实短回复；失败会停在具体错误，不打开一个无法调用的会话。预检会消耗积分。默认打开新会话，使用 `.runtime/kimi-profile`，不会自动恢复原 Kimi 账号下的旧会话。要继续这个 profile 中的会话，可传 `--continue`。
 
-Kimi 使用 Anthropic 文字与客户端工具入口，上下文和输出限制取自模型目录，Kimi K3 默认上下文为 300,000 tokens、最大输出为 32,000。不声明原生 thinking 或图片支持；辅助模型也使用启动时选定的 WorkBuddy 入口。通过 `/model` 选择同一 profile 中的其他模型。
+Kimi 使用 Anthropic 文字与客户端工具入口，上下文和输出限制取自模型目录，Kimi K3 默认上下文为 300,000 tokens、最大输出为 32,000。支持显示 CLI 公开输出的 thinking 内容，不支持图片；辅助模型也使用启动时选定的 WorkBuddy 入口。通过 `/model` 选择同一 profile 中的其他模型。
 
 以上隔离启动器不修改 `~/.kimi-code` 的配置与会话。直接运行普通 `kimi` 时，要安装到它实际读取的配置：
 
@@ -107,6 +107,14 @@ kimi
 如果前三项已通过，只剩 Kimi 文件读取失败，可执行 `npm run local:repair -- --kimi-tools-only` 继续剩余检查。Kimi 2.1.1 不允许 `--prompt` 与 `--yolo` / `--auto` / `--plan` 组合，项目检查命令使用 prompt 模式自身的非交互权限。
 
 详情及旧 8799 / 64K 配置的排查见 [Kimi 说明](docs/kimi.md)。隔离启动器的真实文字和文件读取验收：`npm run kimi:check`。配置解析与 fixture 测试不代表真实账号调用成功，联机结果以自己运行检查命令为准。
+
+## 推理显示与复查
+
+桥接保留官方 CLI 的公开 `thinking` 块，并把增量内容实时转发给 pi / Kimi / Claude 的 Anthropic 客户端。最终回答和工具调用在 JSON 与工具参数校验通过后发送；如果 CLI 只给出了最终 thinking 快照，就在完成后显示。某个模型或请求没有公开 thinking 时，只显示答案。不会从答案中推测或补写推理内容，也不读取调试元数据。
+
+pi 更新后 `/reload` 或重开，`Ctrl+T` 展开或收起 thinking。这些内容保存在 pi 会话中，`/export review.html` 可导出复查；实际工具记录和文件 diff 仍由客户端保存。CLI 默认 effort 为 `low`，pi 选择的 reasoning 等级及 Anthropic `output_config.effort` 会传给 CLI；其他情况使用 `.env` 的 `BRIDGE_REASONING_EFFORT`。原生 token budget、强制关闭 thinking 等参数仍不保证得到相同行为。
+
+Kimi / Claude 更新后运行 `npm run bridge:restart` 加载新协议。普通 Kimi 再运行 `npm run kimi:install -- --apply`，备份并更新为可显示 thinking 的配置，然后退出旧会话重开。隔离 Kimi 启动器会自动生成新 profile。OpenAI Chat Completions 返回 `reasoning_content`，目前仍在完成后发送。
 
 ## 其他 API 客户端
 
@@ -135,6 +143,6 @@ npm run integration:check
 
 此命令验证 WorkBuddy 工具往返、Claude 和 pi 的文字及读取临时随机文件结果，会调用真实模型并可能消耗积分。官方 CLI 可回复不等于桥接端到端已通过。缺少本地客户端时，相应隔离客户端测试会跳过；CI 不需要账号。
 
-WorkBuddy 使用积分，pi 的美元费率 0 只是未知占位，不代表免费。积分共享、模型权限和实际价格以[官方说明](https://www.codebuddy.cn/docs/workbuddy/Pricing)及账号记录为准。模型列表是 2026-10-06 的官方目录快照，不保证每个账号都能调用。图片、音频、原生思考和完整原生工具协议尚未支持；失败不会自动切换服务商。
+WorkBuddy 使用积分，pi 的美元费率 0 只是未知占位，不代表免费。积分共享、模型权限和实际价格以[官方说明](https://www.codebuddy.cn/docs/workbuddy/Pricing)及账号记录为准。模型列表是 2026-10-06 的官方目录快照，不保证每个账号都能调用。图片、音频和完整原生工具协议尚未支持；公开思考内容以 CLI 实际输出为准，失败不会自动切换服务商。
 
 `.env`、本地 Claude 设置、运行日志和私有调试记录均不应提交。参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)。采用 [MIT](LICENSE) 许可证。

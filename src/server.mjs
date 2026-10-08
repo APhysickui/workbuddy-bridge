@@ -6,6 +6,7 @@ import { normalizeAnthropic, anthropicMessage, anthropicEvents, estimatedInputTo
 import { forwardAnthropic } from './passthrough.mjs';
 import { bridgeIdentity } from './bridge-service.mjs';
 import { claudeRouteModels, bridgeModelList } from './claude-models.mjs';
+import { AnthropicThinkingStream, startSse, writeSse } from './anthropic-stream.mjs';
 
 function authenticated(header, apiKey) {
   if (typeof header !== 'string' || !header.startsWith('Bearer ')) return false;
@@ -59,7 +60,7 @@ export function createHandler(config, adapter, forward = forwardAnthropic) {
       anthropic = url.pathname === '/v1/messages' || url.pathname === '/v1/messages/count_tokens';
       if (request.method === 'GET' && url.pathname === '/health') {
         return json(response, 200, { status: 'ok', backend: config.backend, text_only: false, anthropic_tools: 'experimental_prompt_translation',
-          upstream_verified: upstreamVerified, credit_sharing_verified: false, stream_mode: 'buffered', busy: active });
+          upstream_verified: upstreamVerified, credit_sharing_verified: false, stream_mode: 'live_thinking_buffered_answer', busy: active });
       }
       if (!authenticated(request.headers.authorization, config.apiKey) && !apiKeyAuthenticated(request.headers['x-api-key'], config.apiKey)) {
         throw new BridgeError(401, 'unauthorized', 'Provide the local bridge key as a Bearer token.');
@@ -100,28 +101,33 @@ export function createHandler(config, adapter, forward = forwardAnthropic) {
       active = true;
       ownsSlot = true;
       const input = kind === 'anthropic' ? normalizeAnthropic(body, models) : normalize(body, kind, models);
-      const result = kind === 'anthropic'
-        ? await adapter.completeAnthropic({ ...input, signal: controller.signal })
-        : await adapter.complete({ ...input, signal: controller.signal });
-      if (controller.signal.aborted) return;
-      if (config.backend === 'workbuddy') upstreamVerified = true;
       const id = `${kind === 'chat' ? 'chatcmpl' : kind === 'anthropic' ? 'msg' : 'resp'}_${randomUUID().replaceAll('-', '')}`;
       const created = Math.floor(Date.now() / 1000);
       if (kind === 'anthropic') {
         response.setHeader('x-bridge-compatibility', 'experimental-prompt-tools');
         response.setHeader('x-bridge-advisory-fields', input.advisoryFields.join(','));
-        if (!result.usage) response.setHeader('x-bridge-usage', 'unknown-reported-as-zero');
+        response.setHeader('x-bridge-stream-mode', 'live-thinking-buffered-answer');
+      }
+      const live = kind === 'anthropic' && input.stream ? new AnthropicThinkingStream(response, id, input.publicModel, controller.signal) : null;
+      const result = kind === 'anthropic'
+        ? await adapter.completeAnthropic({ ...input, signal: controller.signal, onThinking: live ? event => live.accept(event) : undefined })
+        : await adapter.complete({ ...input, signal: controller.signal });
+      if (controller.signal.aborted) return;
+      if (config.backend === 'workbuddy') upstreamVerified = true;
+      if (kind === 'anthropic') {
+        if (!result.usage && !response.headersSent) response.setHeader('x-bridge-usage', 'unknown-reported-as-zero');
       }
       if (!input.stream && kind === 'anthropic') return json(response, 200, anthropicMessage(id, input.publicModel, result));
       if (!input.stream) return json(response, 200, kind === 'chat' ? chatCompletion(id, input.publicModel, result, created) : responseObject(id, input.publicModel, result, created));
-      // Buffered SSE: CLI completes first, then its final text is emitted as protocol events.
-      response.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', 'x-accel-buffering': 'no' });
+      // Public thinking can arrive before completion. Answer/tool JSON is only
+      // emitted after the CLI has succeeded and tool arguments are validated.
+      if (!response.headersSent) startSse(response);
+      if (response.writableNeedDrain) await once(response, 'drain', { signal: controller.signal });
       const events = kind === 'chat' ? chatEvents(id, input.publicModel, result, created, input.includeUsage)
-        : kind === 'anthropic' ? anthropicEvents(id, input.publicModel, result) : responseEvents(id, input.publicModel, result, created);
+        : kind === 'anthropic' ? live.started ? live.finish(result) : anthropicEvents(id, input.publicModel, result)
+          : responseEvents(id, input.publicModel, result, created);
       for (const event of events) {
-        const value = typeof event.data === 'string' ? event.data : JSON.stringify(event.data);
-        const line = `${event.event ? `event: ${event.event}\n` : ''}data: ${value}\n\n`;
-        if (!response.write(line)) {
+        if (!writeSse(response, event)) {
           await once(response, 'drain', { signal: controller.signal });
         }
         if (controller.signal.aborted) return;
@@ -133,7 +139,14 @@ export function createHandler(config, adapter, forward = forwardAnthropic) {
       if (!response.headersSent) json(response, safe.status, anthropic
         ? { type: 'error', error: { type: safe.status === 401 ? 'authentication_error' : safe.status === 400 ? 'invalid_request_error' : safe.status === 429 ? 'rate_limit_error' : 'api_error', message: safe.message }, request_id: `req_${randomUUID()}` }
         : { error: { type: safe.code, code: safe.code, message: safe.message } });
-      else response.end();
+      else {
+        // A partial thought is not a successful completion. Tell streaming SDKs
+        // about the failure instead of silently closing an unfinished message.
+        writeSse(response, { event: 'error', data: anthropic
+          ? { type: 'error', error: { type: 'api_error', message: safe.message } }
+          : { error: { type: safe.code, code: safe.code, message: safe.message } } });
+        response.end();
+      }
     } finally {
       if (ownsSlot) active = false;
       request.off('aborted', disconnected);

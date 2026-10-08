@@ -36,9 +36,15 @@ export function normalizeAnthropic(body, models) {
     }
     const blocks = typeof message.content === 'string' ? [{ type: 'text', text: message.content }] : message.content;
     if (!Array.isArray(blocks)) throw invalid('Invalid message content.');
-    const normalized = blocks.map(block => {
+    const normalized = blocks.flatMap(block => {
       if (!object(block)) throw invalid('Invalid content block.');
       if (block.type === 'text' && typeof block.text === 'string') return { type: 'text', text: block.text };
+      if (block.type === 'thinking' && message.role === 'assistant' && typeof block.thinking === 'string' &&
+          (block.signature === undefined || typeof block.signature === 'string')) {
+        return { type: 'thinking', thinking: block.thinking, signature: block.signature ?? '' };
+      }
+      // Opaque redacted content cannot be reviewed or used by the CLI prompt.
+      if (block.type === 'redacted_thinking' && message.role === 'assistant' && typeof block.data === 'string') return [];
       if (block.type === 'tool_use' && message.role === 'assistant') {
         if (typeof block.id !== 'string' || seen.has(block.id) || typeof block.name !== 'string' || !object(block.input)) throw invalid('Invalid or duplicate tool_use.');
         seen.add(block.id);
@@ -50,7 +56,7 @@ export function normalizeAnthropic(body, models) {
         const value = block.content === undefined ? '' : textBlocks(block.content);
         return { type: 'tool_result', tool_use_id: block.tool_use_id, content: value, is_error: block.is_error === true };
       }
-      throw invalid(`Unsupported content block: ${block.type ?? 'unknown'}. Only text and client tool calls are supported.`);
+      throw invalid(`Unsupported content block: ${block.type ?? 'unknown'}. Only text, assistant thinking and client tool calls are supported.`);
     });
     return [{ role: message.role, content: normalized }];
   });
@@ -72,6 +78,7 @@ export function normalizeAnthropic(body, models) {
     model: models.get(body.model), publicModel: body.model, stream: body.stream === true,
     system: [body.system === undefined ? '' : textBlocks(body.system), ...extraInstructions].filter(Boolean).join('\n\n'), history, tools,
     toolChoice: choice, maxTokens: body.max_tokens,
+    effort: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(body.output_config?.effort) ? body.output_config.effort : undefined,
     // This CLI wrapper cannot apply the provider's native sampling or token limits.
     advisoryFields: ['max_tokens', 'temperature', 'top_p', 'top_k', 'thinking', 'output_config', 'stop_sequences', 'context_management', 'cache_control'].filter(key => key in body)
   };
@@ -128,12 +135,13 @@ export function parseAnthropicResult(result, input) {
   if (text.startsWith('```')) text = text.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
   try { value = JSON.parse(text); } catch {}
   const fail = message => { throw new BridgeError(502, 'upstream_invalid_tool_protocol', message); };
+  const thinking = result.thinking ?? [];
   // A normal answer may ignore the requested envelope. Auto/none do not require
   // a tool call: pass that answer through as text, never infer or execute tools.
   // Keep malformed envelopes and required tool calls as explicit failures.
   if (value === undefined && ['auto', 'none'].includes(input.toolChoice.type) && result.text.trim() &&
       !/^[\[{]/.test(text) && !/"tool_calls"\s*:/.test(text)) {
-    return { content: [{ type: 'text', text: result.text }], stopReason: 'end_turn',
+    return { content: [...thinking, { type: 'text', text: result.text }], stopReason: 'end_turn',
       usage: result.usage, anthropicUsage: result.anthropicUsage };
   }
   if (!object(value) || typeof value.text !== 'string' || !Array.isArray(value.tool_calls) || Object.keys(value).some(key => !['text', 'tool_calls'].includes(key))) {
@@ -142,7 +150,7 @@ export function parseAnthropicResult(result, input) {
   if (value.tool_calls.length > 16) fail('The model returned too many tool calls.');
   if (input.toolChoice.type === 'none' && value.tool_calls.length) fail('The model violated tool_choice=none.');
   if (['any', 'tool'].includes(input.toolChoice.type) && !value.tool_calls.length) fail('The model did not fulfill the required tool choice.');
-  const content = [];
+  const content = [...thinking];
   if (value.text) content.push({ type: 'text', text: value.text });
   for (const call of value.tool_calls) {
     const tool = input.tools.find(tool => tool.name === call?.name);
@@ -150,7 +158,7 @@ export function parseAnthropicResult(result, input) {
     if (input.toolChoice.type === 'tool' && call.name !== input.toolChoice.name) fail('The model returned a tool different from tool_choice.');
     content.push({ type: 'tool_use', id: `toolu_${randomUUID().replaceAll('-', '')}`, name: call.name, input: call.input });
   }
-  if (!content.length) fail('The model returned neither text nor tool calls.');
+  if (!value.text && !value.tool_calls.length) fail('The model returned neither text nor tool calls.');
   return { content, stopReason: value.tool_calls.length ? 'tool_use' : 'end_turn', usage: result.usage, anthropicUsage: result.anthropicUsage };
 }
 
@@ -160,22 +168,27 @@ export function anthropicMessage(id, model, result) {
     usage: result.anthropicUsage ?? { input_tokens: result.usage?.prompt_tokens ?? 0, output_tokens: result.usage?.completion_tokens ?? 0 } };
 }
 
-export function* anthropicEvents(id, model, result) {
+export function* anthropicEvents(id, model, result, options = {}) {
   const full = anthropicMessage(id, model, result);
   const event = (type, fields = {}) => ({ event: type, data: { type, ...fields } });
-  yield event('message_start', { message: { ...full, content: [], stop_reason: null, usage: { ...full.usage, output_tokens: 0 } } });
+  if (options.messageStart !== false) yield event('message_start', { message: { ...full, content: [], stop_reason: null, usage: { ...full.usage, output_tokens: 0 } } });
+  let skipped = 0;
   for (const [index, block] of full.content.entries()) {
-    yield event('content_block_start', { index, content_block: block.type === 'text' ? { type: 'text', text: '' } : { ...block, input: {} } });
-    const serialized = block.type === 'text' ? block.text : JSON.stringify(block.input);
+    if (block.type === 'thinking' && skipped++ < (options.skipThinking ?? 0)) continue;
+    yield event('content_block_start', { index, content_block: block.type === 'text' ? { type: 'text', text: '' }
+      : block.type === 'thinking' ? { type: 'thinking', thinking: '', signature: '' } : { ...block, input: {} } });
+    const serialized = block.type === 'text' ? block.text : block.type === 'thinking' ? block.thinking : JSON.stringify(block.input);
     const chars = Array.from(serialized);
     for (let offset = 0; offset < chars.length; offset += 160) {
       const value = chars.slice(offset, offset + 160).join('');
       yield event('content_block_delta', { index, delta: block.type === 'text'
-        ? { type: 'text_delta', text: value } : { type: 'input_json_delta', partial_json: value } });
+        ? { type: 'text_delta', text: value } : block.type === 'thinking'
+          ? { type: 'thinking_delta', thinking: value } : { type: 'input_json_delta', partial_json: value } });
     }
+    if (block.type === 'thinking' && block.signature) yield event('content_block_delta', { index, delta: { type: 'signature_delta', signature: block.signature } });
     yield event('content_block_stop', { index });
   }
-  yield event('message_delta', { delta: { stop_reason: full.stop_reason, stop_sequence: null }, usage: { output_tokens: full.usage.output_tokens } });
+  yield event('message_delta', { delta: { stop_reason: full.stop_reason, stop_sequence: null }, usage: full.usage });
   yield event('message_stop');
 }
 

@@ -35,6 +35,17 @@ test('installed pi CLI lists the catalog, selects several models, runs its read 
   };
   const text = await run(pi, [...common, '--no-tools', 'Reply with PI_WORKBUDDY_OK only.'], options);
   assert.equal(verifyPiCheck(text.stdout).pi_text_verified, true);
+  const session = join(project, 'thinking-session.jsonl');
+  const withSession = common.filter(arg => arg !== '--no-session');
+  const thought = await run(pi, [...withSession, '--session', session, '--no-tools', 'SIMULATE_THINKING'], options);
+  assert.equal(verifyPiCheck(thought.stdout).pi_text_verified, true);
+  assert.match(await readFile(session, 'utf8'), /"type":"thinking","thinking":"PI_REVIEWABLE_THINKING"/);
+  const exported = join(project, 'thinking-review.html');
+  await run(pi, ['--offline', '--export', session, exported], options);
+  const html = await readFile(exported, 'utf8');
+  const encoded = html.match(/<script id="session-data" type="application\/json">([^<]+)<\/script>/)?.[1];
+  assert.ok(encoded, 'HTML export did not include its session payload');
+  assert.ok(Buffer.from(encoded, 'base64').toString('utf8').includes('PI_REVIEWABLE_THINKING'), 'HTML session payload lost public thinking');
   const list = await run(pi, ['--offline', '--approve', '--no-extensions', '-e', join(project, '.pi/extensions/workbuddy.js'),
     '--list-models', 'workbuddy-cli'], options);
   for (const model of workbuddyCatalog.models) assert.ok(list.stdout.includes(model.id), `Missing ${model.id} in pi's actual menu`);
