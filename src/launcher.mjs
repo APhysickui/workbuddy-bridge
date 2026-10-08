@@ -17,6 +17,7 @@ export async function runClient(command, args, options = {}) {
     const child = spawn(command, args, { cwd: options.cwd, env: options.env ?? process.env,
       stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit', shell: false, detached: options.capture && process.platform !== 'win32' });
     let stdout = '';
+    let stderr = '';
     let bytes = 0;
     let failure;
     let killTimer;
@@ -41,6 +42,7 @@ export async function runClient(command, args, options = {}) {
         bytes += chunk.length;
         if (bytes > 4 * 1024 * 1024) stop('客户端输出超过验证限制。');
         else if (save) stdout += chunk;
+        else stderr += chunk;
       };
       child.stdout.setEncoding('utf8');
       child.stdout.on('data', chunk => capture(chunk, true));
@@ -52,6 +54,11 @@ export async function runClient(command, args, options = {}) {
       cleanup();
       if (options.capture) kill('SIGKILL');
       if (failure) reject(failure);
+      else if (code !== 0 && /(?:^|\n)error: (Cannot combine --[a-z-]+ with --[a-z-]+)\.?\s*(?:\n|$)/.test(stderr)) {
+        // Expose only the known argument diagnostic, never arbitrary stderr.
+        const detail = stderr.match(/(?:^|\n)error: (Cannot combine --[a-z-]+ with --[a-z-]+)/)[1];
+        reject(Object.assign(new Error(`${command} 参数不兼容：${detail}。`), { code: 'client_arguments_invalid', exitCode: code }));
+      }
       else if (code !== 0 && !(options.capture && options.allowFailure && stdout.trim())) reject(new Error(`${command} 退出失败；没有验证成功回复。`));
       else resolve(stdout);
     });

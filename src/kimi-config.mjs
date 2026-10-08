@@ -5,6 +5,12 @@ export const KIMI_CHECK_REPLY = 'KIMI_WORKBUDDY_OK';
 
 export function kimiAlias(id) { return `${KIMI_PROVIDER_ID}/${id}`; }
 
+export function kimiPromptArgs(model, prompt) {
+  // Kimi 2.1.1 prompt mode supplies its own noninteractive permissions and
+  // rejects --yolo, --auto and --plan before starting a session.
+  return ['--model', model, '--output-format', 'stream-json', '--prompt', prompt];
+}
+
 export function kimiProfile(config, model, options = {}) {
   if (!config.models.has(model)) throw new Error('未知 WorkBuddy 模型；请运行 npm run models 查看。');
   const provider = options.providerId ?? KIMI_PROVIDER_ID;

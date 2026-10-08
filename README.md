@@ -10,6 +10,8 @@ A local, experimental bridge from the official CodeBuddy CLI to pi, Claude Code,
 
 需要 Node.js **22.9+**、已安装并能正常回复的官方 CodeBuddy CLI，以及要使用的 pi 或 Claude Code。项目无 npm 依赖；Claude 原服务商透传另需系统 `curl`。
 
+无需一直开启 WorkBuddy 桌面应用，调用依赖官方 CodeBuddy CLI 的正常登录。pi 的 WorkBuddy 扩展直接启动 CLI；Kimi / Claude Code 的接入需要本地桥接服务在后台运行，启动 hook 会自动检查并拉起服务。
+
 ```sh
 cd workbuddy-bridge
 npm run init
@@ -101,6 +103,8 @@ kimi
 安装仅替换已知本地 WorkBuddy 提供商及其模型，保留其他提供商和用户 hook；原默认指向 WorkBuddy 时同时修正 thinking 和辅助模型。WorkBuddy 改用本项目端口上的 Anthropic 接口，模型预算取自目录。启动 hook 会在新会话开始时自动检查并启动桥接。本地桥接密钥写入用户的私有 Kimi 配置，不写进仓库。退出旧客户端后重开，避免继续使用旧会话的 64K 配置。
 
 如果 pi 提示工具 JSON 格式错误，或 Kimi 仍连旧端口，可在普通终端执行 `npm run local:repair`。它备份并迁移普通 Kimi 配置、重启桥接，然后核对 pi / Kimi 的真实文字回复和读取临时随机文件的结果，会消耗积分；只有全部通过才打印 `LOCAL_REPAIR_OK`。`npm run local:repair -- --plan` 只查看方案。
+
+如果前三项已通过，只剩 Kimi 文件读取失败，可执行 `npm run local:repair -- --kimi-tools-only` 继续剩余检查。Kimi 2.1.1 不允许 `--prompt` 与 `--yolo` / `--auto` / `--plan` 组合，项目检查命令使用 prompt 模式自身的非交互权限。
 
 详情及旧 8799 / 64K 配置的排查见 [Kimi 说明](docs/kimi.md)。隔离启动器的真实文字和文件读取验收：`npm run kimi:check`。配置解析与 fixture 测试不代表真实账号调用成功，联机结果以自己运行检查命令为准。
 

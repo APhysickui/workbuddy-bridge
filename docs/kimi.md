@@ -36,6 +36,8 @@ npm run local:repair
 
 修复命令重启已认证的本项目服务，并实际验证 pi 普通回复（工具列表仍开启）、pi 读取临时随机文件、普通 Kimi 回复及 Kimi 文件读取。会发出真实请求并消耗积分；只在全部核对通过后输出 `LOCAL_REPAIR_OK`。失败处会停下，已完成的配置迁移和备份仍保留。
 
+若前三项已通过，只有 Kimi 文件读取失败，可执行 `npm run local:repair -- --kimi-tools-only`。它要求本地记录已有这些成功结果，保留结果并继续最后一项。Kimi 2.1.1 明确拒绝 `--prompt` 与 `--yolo`、`--auto` 或 `--plan` 组合；这类错误发生在模型请求前。项目的两种 Kimi 检查都使用同一套合法的 prompt 参数，客户端启动失败时会显示安全的参数冲突诊断。
+
 仅检查方案：`npm run local:repair -- --plan`。仅迁移配置、不调用模型：`npm run kimi:install -- --apply`。安装后在任意目录运行 `kimi` 使用修复后的全局 profile；本项目 `npm run kimi` 仍使用独立 profile。
 
 本地端口和全局目录受限制的 Codex 沙箱无法完成应用及真实调用，请在普通终端执行。原会话与其他服务商的密钥不会被迁移到仓库。

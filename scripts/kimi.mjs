@@ -4,7 +4,7 @@ import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readConfig } from '../src/config.mjs';
 import { ensureBridge, runClient } from '../src/launcher.mjs';
-import { kimiAlias, kimiProfile, kimiEnvironment, checkKimiUpstream, verifyKimiCheck, KIMI_CHECK_REPLY } from '../src/kimi-config.mjs';
+import { kimiAlias, kimiProfile, kimiEnvironment, kimiPromptArgs, checkKimiUpstream, verifyKimiCheck, KIMI_CHECK_REPLY } from '../src/kimi-config.mjs';
 
 const project = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const input = process.argv.slice(2);
@@ -43,14 +43,13 @@ try {
   } else {
     temporary = await mkdtemp(join(config.runtimeDir, 'kimi-check-'));
     const options = { cwd: temporary, env, capture: true, timeout: config.timeoutMs * 3 };
-    const common = ['--model', kimiAlias(model), '--output-format', 'stream-json'];
-    const text = await runClient('kimi', [...common, '--prompt', `Reply with ${KIMI_CHECK_REPLY} only.`], options);
+    const text = await runClient('kimi', kimiPromptArgs(kimiAlias(model), `Reply with ${KIMI_CHECK_REPLY} only.`), options);
     console.log(JSON.stringify(verifyKimiCheck(text)));
     const marker = 'KIMI_WORKBUDDY_FILE_' + randomUUID();
     const file = join(temporary, 'check.txt');
     await writeFile(file, marker, { mode: 0o600 });
-    const tools = await runClient('kimi', [...common, '--yolo', '--prompt',
-      `Use the file-reading tool to read ${file} and reply with its exact contents only. Do not guess the contents.`], options);
+    const tools = await runClient('kimi', kimiPromptArgs(kimiAlias(model),
+      `Use the file-reading tool to read ${file} and reply with its exact contents only. Do not guess the contents.`), options);
     console.log(JSON.stringify(verifyKimiCheck(tools, marker, true)));
     console.log('Kimi 的真实文字回复及文件读取往返均通过。');
   }

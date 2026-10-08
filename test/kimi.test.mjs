@@ -9,7 +9,8 @@ import { readConfig } from '../src/config.mjs';
 import { workbuddyCatalog, catalogContextWindow } from '../src/model-catalog.mjs';
 import { createHandler } from '../src/server.mjs';
 import { handlerFetch } from './helpers.mjs';
-import { kimiProfile, kimiEnvironment, checkKimiUpstream, verifyKimiCheck, KIMI_CHECK_REPLY } from '../src/kimi-config.mjs';
+import { kimiProfile, kimiEnvironment, kimiPromptArgs, checkKimiUpstream, verifyKimiCheck, KIMI_CHECK_REPLY } from '../src/kimi-config.mjs';
+import { runClient } from '../src/launcher.mjs';
 
 const config = readConfig({ BRIDGE_API_KEY: 'test-local-key-0123456789abcdef', BRIDGE_BACKEND: 'workbuddy' });
 
@@ -87,4 +88,26 @@ test('installed Kimi validates and reads the isolated profile without changing g
   const parsed = JSON.parse(list.stdout);
   assert.ok(JSON.stringify(parsed).includes('workbuddy-bridge/kimi-k3-1'));
   assert.ok(!JSON.stringify(parsed).includes('8799'));
+});
+
+test('installed Kimi accepts generated prompt arguments and exposes incompatible flags before any model request', { timeout: 15000 }, async t => {
+  const cli = join(homedir(), '.kimi-code/bin/kimi');
+  try { await access(cli); } catch { t.skip('Kimi Code is not installed'); return; }
+  const profile = await mkdtemp(join(tmpdir(), 'wb-kimi-args-'));
+  t.after(() => rm(profile, { recursive: true, force: true }));
+  await writeFile(join(profile, 'config.toml'), kimiProfile(config, 'kimi-k3-1'), { mode: 0o600 });
+  const options = { cwd: profile, env: kimiEnvironment(config, profile), capture: true, allowFailure: true, timeout: 5000 };
+  const args = kimiPromptArgs('__bridge_missing_model__', 'diagnostic');
+  await assert.rejects(runClient(cli, [...args, '--yolo'], options), error => {
+    assert.equal(error.code, 'client_arguments_invalid');
+    assert.match(error.message, /Cannot combine --prompt with --yolo/);
+    return true;
+  });
+  // An unknown model and isolated credentials prevent a real model request.
+  // A system.version event proves argument validation reached prompt mode;
+  // filesystem watchers may subsequently fail in a restricted sandbox.
+  const stdout = await runClient(cli, args, options);
+  assert.ok(stdout.split('\n').some(line => {
+    try { return JSON.parse(line).type === 'system.version'; } catch { return false; }
+  }));
 });
