@@ -4,6 +4,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { WorkBuddyAdapter, parseCliResult } from '../src/adapters.mjs';
 import { normalizeAnthropic } from '../src/anthropic.mjs';
 
@@ -121,4 +123,85 @@ test('explicit supported Anthropic effort reaches the official CLI argument', as
   const request = normalizeAnthropic({ model: 'test', max_tokens: 1024, output_config: { effort: 'high' },
     messages: [{ role: 'user', content: 'Check and reply.' }] }, new Map([['test', 'test']]));
   assert.equal((await adapter.completeAnthropic(request)).stopReason, 'end_turn');
+});
+
+function agentInput() {
+  return normalizeAnthropic({ model: 'test', max_tokens: 1024, messages: [{ role: 'user', content: 'Inspect the files and report the result.' }],
+    tools: [{ name: 'read', input_schema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } }] }, new Map([['test', 'test']]));
+}
+
+test('reasoning-only CLI generations can recover without running client tools upstream', async t => {
+  const result = await (await adapterFor(t, 'agent-reasoning-only')).completeAnthropic(agentInput());
+  assert.equal(result.stopReason, 'tool_use');
+  assert.deepEqual(result.content.filter(block => block.type === 'thinking').map(block => block.thinking),
+    ['Read the full draft text.', 'Return the client read request.']);
+  assert.equal(result.content.at(-1).name, 'read');
+});
+
+test('an unfinished announcement is corrected into a validated client action with all usage counted', async t => {
+  const adapter = await adapterFor(t, 'agent-continue');
+  const events = [];
+  const result = await adapter.completeAnthropic({ ...agentInput(), onThinking: event => events.push(event) });
+  assert.equal(result.stopReason, 'tool_use');
+  assert.deepEqual(result.content.at(-1).input, { path: 'index.txt' });
+  assert.deepEqual(events.filter(event => event.type === 'start').map(event => event.index), [0, 1]);
+  assert.equal(result.content.filter(block => block.type === 'thinking').length, 2);
+  assert.deepEqual(result.usage, { prompt_tokens: 6, completion_tokens: 10, total_tokens: 16 });
+  assert.deepEqual(result.anthropicUsage, { input_tokens: 6, output_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 });
+});
+
+test('snapshot thinking precedes live correction thinking without lost or duplicated blocks', async t => {
+  const adapter = await adapterFor(t, 'agent-snapshot');
+  const events = [];
+  const result = await adapter.completeAnthropic({ ...agentInput(), onThinking: event => events.push(event) });
+  assert.deepEqual(events.map(event => [event.type, event.index]), [['start', 0], ['stop', 0], ['start', 1], ['stop', 1]]);
+  assert.deepEqual(result.content.filter(block => block.type === 'thinking').map(block => block.thinking),
+    ['The next file is needed.', 'Request the actual client tool now.']);
+});
+
+test('repeated promises stop after one correction and never fabricate a client tool', async t => {
+  const events = [];
+  await assert.rejects((await adapterFor(t, 'agent-stuck')).completeAnthropic({ ...agentInput(), onThinking: event => events.push(event) }), { code: 'upstream_incomplete_turn' });
+  assert.equal(events.filter(event => event.type === 'start').length, 2);
+});
+
+test('upstream recovery exhaustion reports the actual safe failure category', async t => {
+  await assert.rejects((await adapterFor(t, 'agent-limit')).completeAnthropic(agentInput()), error => {
+    assert.equal(error.code, 'upstream_turn_limit');
+    assert.ok(!error.message.includes('PRIVATE_METADATA'));
+    return true;
+  });
+});
+
+test('correction shares the original deadline and remains cancellable', async t => {
+  const timed = await adapterFor(t, 'agent-timeout', 500);
+  const invoke = timed.invoke.bind(timed);
+  const budgets = [];
+  timed.invoke = input => { budgets.push(input.timeoutMs); return invoke(input); };
+  await assert.rejects(timed.completeAnthropic(agentInput()), { code: 'upstream_timeout' });
+  assert.equal(budgets.length, 2);
+  assert.ok(budgets[1] < budgets[0] - 120, 'a fresh timeout was allocated for the correction');
+  const adapter = await adapterFor(t, 'agent-timeout');
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), 300);
+  await assert.rejects(adapter.completeAnthropic({ ...agentInput(), signal: controller.signal }), { code: 'cancelled' });
+});
+
+test('agent checker requires both real client file reads and the exact random final marker', async t => {
+  const runtimeDir = await mkdtemp(join(tmpdir(), 'wb-agent-check-test-'));
+  t.after(() => rm(runtimeDir, { recursive: true, force: true }));
+  const script = fileURLToPath(new URL('../scripts/agent-check.mjs', import.meta.url));
+  const options = { cwd: runtimeDir, timeout: 10000, env: { ...process.env,
+    BRIDGE_API_KEY: 'fixture-only-local-key-0123456789abcdef', BRIDGE_BACKEND: 'workbuddy', CODEBUDDY_BIN: fixture,
+    BRIDGE_MODELS: 'test=test', BRIDGE_CLAUDE_MODEL: 'test', WB_FAKE_CLI_MODE: 'agent-check' } };
+  const { stdout } = await promisify(execFile)(process.execPath, [script, '--model', 'test'], options);
+  assert.match(stdout, /AGENT_CHECK_OK/);
+  const steps = stdout.split('\n').flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } });
+  assert.deepEqual(steps.map(step => [step.stop_reason, step.tool_calls]), [['tool_use', 1], ['tool_use', 1], ['end_turn', 0]]);
+  await assert.rejects(promisify(execFile)(process.execPath, [script, '--model', 'test'],
+    { ...options, env: { ...options.env, WB_FAKE_CLI_MODE: 'agent-check-premature' } }), error => {
+    assert.match(error.stderr, /ended before both reads/);
+    assert.ok(!error.stdout.includes('AGENT_CHECK_OK'));
+    return true;
+  });
 });

@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BridgeError } from './errors.mjs';
-import { anthropicPrompt, parseAnthropicResult } from './anthropic.mjs';
+import { anthropicPrompt, deferredClientAction, parseAnthropicResult } from './anthropic.mjs';
 import { CliThinking } from './cli-thinking.mjs';
 
 export class MockAdapter {
@@ -20,6 +20,9 @@ export class MockAdapter {
 
 function classifyFailure(text) {
   // Never return raw CLI stdout/stderr: it can contain credentials or private paths.
+  if (/error_max_turns|max(?:imum)?(?: number of)? turns.{0,40}(?:exceed|reach)|MaxTurnsExceededError/i.test(text)) {
+    return new BridgeError(502, 'upstream_turn_limit', 'The CLI exhausted its bounded recovery turns without a final answer. No completion was verified.');
+  }
   if (/not logged|log ?in|unauthenticated|unauthorized|authentication|401/i.test(text)) {
     return new BridgeError(502, 'upstream_auth_required', 'CLI authentication unavailable. Sign in through the official client/CLI and retry.');
   }
@@ -58,7 +61,7 @@ export function parseCliResult(stdout) {
   }
   if (!result) throw new BridgeError(502, 'upstream_invalid_output', 'CLI did not return a recognized JSON result.');
   if (result.is_error || (result.subtype && result.subtype !== 'success')) {
-    throw classifyFailure(JSON.stringify(result.errors ?? []));
+    throw classifyFailure(JSON.stringify({ subtype: result.subtype, errors: result.errors ?? [] }));
   }
   if (typeof result.result !== 'string' || !result.result.trim()) {
     throw new BridgeError(502, 'upstream_empty_result', 'CLI returned no text completion.');
@@ -87,8 +90,10 @@ export function cliArgs(model, systemPromptFile, effort = 'low') {
     '--tools', '',
     '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
     '--setting-sources', 'none', '--settings', '{"disableAllHooks":true,"enabledPlugins":{}}',
-    '--no-session-persistence', '--max-turns', '1',
-    '--permission-mode', 'plan', '--model', model, '--effort', effort,
+    // Some models end a generation with thinking only. The CLI needs another
+    // internal turn to obtain text; this does not run the client's agent loop.
+    '--no-session-persistence', '--max-turns', '3',
+    '--permission-mode', 'dontAsk', '--model', model, '--effort', effort,
     '--system-prompt-file', systemPromptFile
   ];
 }
@@ -113,12 +118,51 @@ export class WorkBuddyAdapter {
 
   async completeAnthropic(input) {
     const prompt = anthropicPrompt(input);
-    const result = await this.invoke({ model: input.model, systemPrompt: prompt.system, history: prompt.history,
-      signal: input.signal, onThinking: input.onThinking, effort: input.effort });
-    return parseAnthropicResult(result, input);
+    const deadline = Date.now() + this.config.timeoutMs;
+    const results = [];
+    const allThinking = [];
+    let history = prompt.history;
+    // At most one correction for an explicit unfinished tool announcement.
+    // Both calls share the request deadline and cancellation signal.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const timeoutMs = deadline - Date.now();
+      if (timeoutMs <= 0) throw new BridgeError(504, 'upstream_timeout', 'CLI exceeded the configured timeout.');
+      const offset = allThinking.length;
+      const emitted = new Set();
+      const result = await this.invoke({ model: input.model, systemPrompt: prompt.system, history,
+        signal: input.signal, effort: input.effort, timeoutMs, onThinking: event => {
+          if (event.type === 'start') emitted.add(event.index);
+          input.onThinking?.({ ...event, index: offset + event.index });
+        } });
+      results.push(result);
+      // A snapshot-only first call must precede live thinking from a correction.
+      for (const [index, block] of (result.thinking ?? []).entries()) {
+        if (!emitted.has(index)) {
+          input.onThinking?.({ type: 'start', index: offset + index, thinking: block.thinking, signature: block.signature });
+          input.onThinking?.({ type: 'stop', index: offset + index });
+        }
+        allThinking.push(block);
+      }
+      const parsed = parseAnthropicResult(result, input);
+      if (!deferredClientAction(parsed, input)) {
+        const sum = (field, keys) => results.every(item => item[field])
+          ? Object.fromEntries(keys.map(key => [key, results.reduce((total, item) => total + (item[field][key] ?? 0), 0)])) : undefined;
+        const anthropicUsage = results.every(item => item.usage) ? results.map(item => item.anthropicUsage ?? {
+          input_tokens: item.usage.prompt_tokens, output_tokens: item.usage.completion_tokens
+        }) : [];
+        return { ...parsed, content: [...allThinking, ...parsed.content.filter(block => block.type !== 'thinking')],
+          usage: results.length === 1 ? result.usage : sum('usage', ['prompt_tokens', 'completion_tokens', 'total_tokens']) ?? null,
+          anthropicUsage: results.length === 1 ? result.anthropicUsage : anthropicUsage.length
+            ? Object.fromEntries(['input_tokens', 'output_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens']
+              .map(key => [key, anthropicUsage.reduce((total, usage) => total + (usage[key] ?? 0), 0)])) : undefined };
+      }
+      if (attempt) throw new BridgeError(502, 'upstream_incomplete_turn', 'The model announced a tool action twice without returning a tool call. The task is incomplete; no tool was inferred or executed.');
+      history = [...history, { role: 'assistant', content: [{ type: 'text', text: result.text }] },
+        { role: 'user', content: [{ type: 'text', text: 'Transport correction: your last response ended with an announcement of a tool action but no tool_calls. Continue the existing task now. Return the required JSON envelope with the actual next client tool call, or a completed answer if no tool is needed. Do not repeat the announcement. Respect all client permissions and tool_choice; do not execute tools yourself.' }] }];
+    }
   }
 
-  async invoke({ model, systemPrompt, history, signal, onThinking, effort }) {
+  async invoke({ model, systemPrompt, history, signal, onThinking, effort, timeoutMs = this.config.timeoutMs }) {
     await mkdir(this.config.runtimeDir, { recursive: true, mode: 0o700 });
     if (signal?.aborted) throw new BridgeError(499, 'cancelled', 'Request cancelled');
     const requestDir = await mkdtemp(join(this.config.runtimeDir, 'request-'));
@@ -156,7 +200,7 @@ export class WorkBuddyAdapter {
         killTimer.unref();
       };
       const abort = () => stop(new BridgeError(499, 'cancelled', 'Request cancelled'));
-      const timer = setTimeout(() => stop(new BridgeError(504, 'upstream_timeout', 'CLI exceeded the configured timeout.')), this.config.timeoutMs);
+      const timer = setTimeout(() => stop(new BridgeError(504, 'upstream_timeout', 'CLI exceeded the configured timeout.')), timeoutMs);
       const cleanup = () => {
         clearTimeout(timer);
         clearTimeout(killTimer);

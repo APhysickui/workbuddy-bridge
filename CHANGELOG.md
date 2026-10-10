@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 修复上游只有 thinking 时被 `--max-turns 1` 中断的问题，改为最多三轮补齐；取消桥接强制 plan 模式，客户端权限仍由客户端处理。
+- 对没有工具调用的明确行动预告进行一次受限纠正，保留 thinking 并累计用量，共享原超时和取消；新增连续两个工具及最终回答的 SDK 测试和 `agent:check` 真实模型检查。
 - 保留 CodeBuddy CLI 公开 thinking 块和真实签名，实时转发 Anthropic thinking 增量；pi 本地传输改为流式读取，支持会话保存与 HTML 复查。
 - pi / Kimi 开放公开 thinking 显示；支持 CLI effort 配置与 pi reasoning 等级，默认仍为 low。最终工具 JSON 保持校验，推理后的失败和取消仍返回错误。
 

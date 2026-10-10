@@ -4,7 +4,7 @@ import { Readable } from 'node:stream';
 import { EventEmitter } from 'node:events';
 import { readConfig } from '../src/config.mjs';
 import { createHandler } from '../src/server.mjs';
-import { normalizeAnthropic, parseAnthropicResult, anthropicEvents, anthropicMessage } from '../src/anthropic.mjs';
+import { normalizeAnthropic, parseAnthropicResult, deferredClientAction, anthropicEvents, anthropicMessage } from '../src/anthropic.mjs';
 import { claudeEnvironment, claudeSettings, directClaudeSettings } from '../src/claude-config.mjs';
 
 const config = readConfig({ BRIDGE_API_KEY: 'test-local-key-0123456789abcdef',
@@ -12,6 +12,25 @@ const config = readConfig({ BRIDGE_API_KEY: 'test-local-key-0123456789abcdef',
 const tool = { name: 'Read', description: 'Read a file', input_schema: { type: 'object', properties: { file_path: { type: 'string' } }, required: ['file_path'], additionalProperties: false } };
 const body = { model: 'deepseek-v4-flash', max_tokens: 4096, system: [{ type: 'text', text: 'Be helpful.', cache_control: { type: 'ephemeral' } }],
   messages: [{ role: 'user', content: 'Read hello.txt' }], tools: [tool] };
+
+test('unfinished tool announcements are distinguished from answers, questions and tool calls', () => {
+  const input = normalizeAnthropic(body, config.models);
+  const parsed = text => parseAnthropicResult({ text, usage: null }, input);
+  for (const text of ['好，重新读你的文件，看看现在的字数和状态。',
+    '还是超了。我先把全文看一遍再给你精确的改法。', 'Let me read the full draft text.', 'I will read draft.txt.',
+    JSON.stringify({ text: "I will inspect the draft next.", tool_calls: [] })]) {
+    assert.equal(deferredClientAction(parsed(text), input), true, text);
+  }
+  for (const text of ['我是 DeepSeek，可以帮你回答问题。', '现在是 1218 字，超出 218 字。',
+    '我已经检查了全文，结果如下。', '我现在检查哪个文件？',
+    '> I will read the file.', 'First, read the file. Then check its length.']) {
+    assert.equal(deferredClientAction(parsed(text), input), false, text);
+  }
+  assert.equal(deferredClientAction(parsed('Let me read the draft.'), { ...input, toolChoice: { type: 'none' } }), false);
+  assert.equal(deferredClientAction(parsed('Let me read the draft.'), { ...input, tools: [] }), false);
+  const action = parsed('{"text":"Let me read the draft.","tool_calls":[{"name":"Read","input":{"file_path":"draft.txt"}}]}');
+  assert.equal(deferredClientAction(action, input), false);
+});
 
 test('Anthropic tools normalize to a prompt protocol and preserve model identity', () => {
   const input = normalizeAnthropic(body, config.models);

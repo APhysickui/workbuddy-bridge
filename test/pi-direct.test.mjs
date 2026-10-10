@@ -64,6 +64,42 @@ test('pi direct provider returns CLI failures without network retries or a fallb
   assert.equal(client.isRetryableAssistantError(result), false);
 });
 
+test('pi SDK continues a multi-step task through announcements, two client tools and a final answer', async t => {
+  const client = await piClient(t);
+  if (!client) return;
+  const runtimeDir = await mkdtemp(join(tmpdir(), 'wb-pi-agent-'));
+  t.after(() => rm(runtimeDir, { recursive: true, force: true }));
+  const config = configFor(runtimeDir);
+  const adapter = new WorkBuddyAdapter(config, { prefixArgs: [fileURLToPath(new URL('./fixtures/fake-cli.mjs', import.meta.url)), 'agent-snapshot'] });
+  let invocations = 0;
+  const invoke = adapter.invoke.bind(adapter);
+  adapter.invoke = input => { invocations++; return invoke(input); };
+  const provider = directPiProvider(config, adapter, client.api, client.createAssistantMessageEventStream);
+  const transcript = context();
+  transcript.messages[0].content = 'Read the index, then the draft it names. Report the result.';
+  const paths = [];
+  for (let step = 0; step < 3; step++) {
+    const answer = await provider.streamSimple(modelFor(provider), client.normalizeContext(transcript)).result();
+    assert.notEqual(answer.stopReason, 'error', answer.errorMessage);
+    assert.equal(answer.content.filter(block => block.type === 'thinking').length, 2);
+    assert.equal(answer.usage.input, 6);
+    assert.equal(answer.usage.output, 10);
+    transcript.messages.push(answer);
+    if (step === 2) {
+      assert.equal(answer.stopReason, 'stop');
+      assert.equal(answer.content.find(block => block.type === 'text').text, 'Checked both files: RANDOM_DRAFT_MARKER');
+    } else {
+      assert.equal(answer.stopReason, 'toolUse');
+      const call = answer.content.find(block => block.type === 'toolCall');
+      paths.push(call.arguments.path);
+      transcript.messages.push({ role: 'toolResult', toolCallId: call.id, toolName: call.name,
+        content: [{ type: 'text', text: step === 0 ? 'draft.txt' : 'RANDOM_DRAFT_MARKER' }], isError: false, timestamp: Date.now() });
+    }
+  }
+  assert.deepEqual(paths, ['index.txt', 'draft.txt']);
+  assert.equal(invocations, 6, 'one bounded correction per client step');
+});
+
 test('pi displays an ordinary CLI answer with its usual coding tools enabled', async t => {
   const client = await piClient(t);
   if (!client) return;

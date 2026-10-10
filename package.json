@@ -12,6 +12,7 @@
     "doctor": "node --env-file-if-exists=.env scripts/doctor.mjs",
     "models": "node --env-file-if-exists=.env scripts/models.mjs",
     "probe": "node --env-file-if-exists=.env scripts/probe.mjs",
+    "agent:check": "node --env-file-if-exists=.env scripts/agent-check.mjs",
     "demo": "node --env-file-if-exists=.env scripts/demo.mjs",
     "claude": "node --env-file-if-exists=.env scripts/claude.mjs",
     "claude:check": "node --env-file-if-exists=.env scripts/claude.mjs --check",

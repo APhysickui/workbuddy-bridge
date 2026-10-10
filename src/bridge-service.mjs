@@ -1,4 +1,4 @@
-export const BRIDGE_PROTOCOL = 4;
+export const BRIDGE_PROTOCOL = 5;
 
 export function bridgeIdentity(config) {
   return { bridge: 'workbuddy-bridge', protocol: BRIDGE_PROTOCOL, backend: config.backend,

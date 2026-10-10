@@ -15,6 +15,8 @@ WorkBuddy 路线使用官方 CLI 的正常登录。每次请求启动隔离的 C
 
 在 `tool_choice=auto` / `none` 下，普通文字回复可以直接作为文字显示，不要求模型包装成工具 JSON。只有结构化且通过名称与参数校验的工具调用会交给客户端执行；强制工具选择、损坏的工具 JSON 和未知工具仍报错。
 
+上游 CLI 的文件工具、MCP、插件和用户 hooks 均禁用；权限模式为 `dontAsk`，避免桥接额外注入 plan 模式。CLI 最多三轮生成，允许补齐只有 thinking 而没有最终文本的响应。客户端 `auto` 工具选择下，明确以“我先读文件”这类行动预告结束且没有工具调用时，桥接最多追加一次协议纠正；不会根据文字推测工具参数。纠正共享原请求超时和取消信号，保留公开 thinking、累计两次用量，可能产生额外积分消耗。无法补齐或耗尽三轮时报告明确错误。该机制只覆盖明确行动预告，不保证识别所有未完成任务。
+
 桥接保留官方 CLI 的公开 thinking 内容和实际签名，接受客户端回传的 assistant thinking 历史；不制造签名，也不读取调试元数据、`reasoning_detail` 或 opaque redacted payload。带 `--include-partial-messages` 的根会话 thinking 增量会立即显示；仅有完整快照时在完成后显示，二者不会重复拼接。没有公开 thinking 的请求只返回答案。pi 会话和 HTML 导出可保留这些内容用于复查。
 
 不接收图片、音频或服务端工具。`max_tokens`、采样、thinking token budget、cache_control 等部分参数不能控制官方 CLI 的原生行为；最大输出仅为声明或提示。支持的 `output_config.effort` 及 pi reasoning 等级传给 CLI 的 `--effort`，其他情况默认 `BRIDGE_REASONING_EFFORT=low`。声明客户端 thinking 能力表示可以显示公开内容，不保证每个目录模型都输出思考，也不保证能强制关闭。同一时刻仅允许一个 WorkBuddy 请求，失败直接报错，不自动切换其他服务商或备用模型。原 Claude 请求不占用此槽位，正文、相关标头和 SSE 直接透传。

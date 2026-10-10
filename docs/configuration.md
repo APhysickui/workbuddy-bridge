@@ -8,7 +8,7 @@
 | `CODEBUDDY_BIN` | 官方 CodeBuddy 的 JavaScript 入口绝对路径；使用 Node 启动，不接受 shell 包装脚本 |
 | `BRIDGE_API_KEY` | 本地 HTTP 认证，至少 24 个无空白字符；由 init 随机生成 |
 | `BRIDGE_PORT` | HTTP 端口，示例为 18765；监听固定为 127.0.0.1 |
-| `BRIDGE_TIMEOUT_MS` | 单次 WorkBuddy 调用超时，init 为 120000，范围 1000–300000 |
+| `BRIDGE_TIMEOUT_MS` | 单个桥接请求的 WorkBuddy 调用总超时（含最多一次协议纠正），init 为 120000，范围 1000–300000 |
 | `BRIDGE_REASONING_EFFORT` | CLI 默认推理 effort，默认 `low`；可选 `minimal` / `low` / `medium` / `high` / `xhigh` / `max`，具体效果和积分以模型为准 |
 | `BRIDGE_MAX_BODY_BYTES` | 请求大小上限，init 为 2097152，最高 4 MiB |
 | `BRIDGE_MODELS` | 逗号分隔的 `公开ID=官方ID`；默认加载完整目录 |
