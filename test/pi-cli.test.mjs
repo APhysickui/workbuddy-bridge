@@ -22,7 +22,7 @@ test('installed pi CLI lists the catalog, selects several models, runs its read 
   await cp(join(original, '.pi/extensions/workbuddy.js'), join(project, '.pi/extensions/workbuddy.js'));
   const cli = resolve(original, 'test/fixtures/pi-cli.mjs');
   await writeFile(join(project, 'package.json'), '{"type":"module"}');
-  await writeFile(join(project, '.env'), `BRIDGE_API_KEY=test-local-key-0123456789abcdef\nBRIDGE_BACKEND=workbuddy\nBRIDGE_MODELS=${DEFAULT_MODEL_ALIASES}\nBRIDGE_CLAUDE_MODEL=deepseek-v4.1-flash\nCODEBUDDY_BIN=${cli}\n`, { mode: 0o600 });
+  await writeFile(join(project, '.env'), `BRIDGE_API_KEY=test-local-key-0123456789abcdef\nBRIDGE_BACKEND=workbuddy\nBRIDGE_TOOL_TRANSPORT=prompt\nBRIDGE_MODELS=${DEFAULT_MODEL_ALIASES}\nBRIDGE_CLAUDE_MODEL=deepseek-v4.1-flash\nCODEBUDDY_BIN=${cli}\n`, { mode: 0o600 });
   const common = ['--offline', '--approve', '--no-extensions', '-e', join(project, '.pi/extensions/workbuddy.js'),
     '--provider', PI_PROVIDER_ID, '--model', 'deepseek-v4.1-flash', '--print', '--mode', 'json',
     '--no-session', '--no-mcp', '--no-skills', '--no-prompt-templates', '--no-context-files'];

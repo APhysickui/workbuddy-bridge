@@ -24,7 +24,7 @@ const tools = [{ name: 'read', description: 'Read one UTF-8 text file by absolut
 } }];
 const messages = [{ role: 'user', content: `Read ${index}. It names a second file. Read that file too, then reply with only the marker found there. Use read for both files. Do all steps without asking me to continue.` }];
 const observed = new Set();
-console.log(`Checking ${model} through the bridge adapter with two client-side reads. This calls the real model and may consume credits.`);
+console.log(`Checking ${model} through the bridge adapter (${config.toolTransport}) with two client-side reads. This calls the real model and may consume credits.`);
 try {
   await writeFile(index, draft, { mode: 0o600 });
   await writeFile(draft, marker, { mode: 0o600 });

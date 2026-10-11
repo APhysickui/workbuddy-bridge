@@ -1,9 +1,9 @@
-export const BRIDGE_PROTOCOL = 5;
+export const BRIDGE_PROTOCOL = 6;
 
 export function bridgeIdentity(config) {
   return { bridge: 'workbuddy-bridge', protocol: BRIDGE_PROTOCOL, backend: config.backend,
     models: Object.fromEntries(config.models), claude_model: config.claudeModel ?? null,
-    cli_path: config.cliPath ?? null, claude_passthrough: Boolean(config.claudePassthrough), reasoning_effort: config.reasoningEffort ?? 'low' };
+    cli_path: config.cliPath ?? null, claude_passthrough: Boolean(config.claudePassthrough), reasoning_effort: config.reasoningEffort ?? 'low', tool_transport: config.toolTransport ?? 'native' };
 }
 
 export async function readBridgeStatus(config, fetcher = fetch) {
@@ -43,6 +43,7 @@ export async function matchingBridge(config, fetcher = fetch) {
   if (status.bridge !== expected.bridge || status.protocol !== expected.protocol || status.backend !== 'workbuddy' ||
       status.cli_path !== expected.cli_path || status.claude_passthrough !== expected.claude_passthrough ||
       status.reasoning_effort !== expected.reasoning_effort ||
+      status.tool_transport !== expected.tool_transport ||
       JSON.stringify(status.models) !== JSON.stringify(expected.models)) {
     throw new Error('已有桥接服务的协议、后端或模型不匹配；请先 npm run bridge:stop 再重新启动。');
   }

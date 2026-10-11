@@ -20,7 +20,7 @@ async function piClient(t) {
 }
 function configFor(runtimeDir) {
   return { ...readConfig({ BRIDGE_API_KEY: 'test-local-key-0123456789abcdef', BRIDGE_BACKEND: 'workbuddy',
-    BRIDGE_MODELS: 'deepseek-v4.1-flash=deepseek-v4.1-flash', BRIDGE_CLAUDE_MODEL: 'deepseek-v4.1-flash' }), runtimeDir };
+    BRIDGE_MODELS: 'deepseek-v4.1-flash=deepseek-v4.1-flash', BRIDGE_CLAUDE_MODEL: 'deepseek-v4.1-flash', BRIDGE_TOOL_TRANSPORT: 'prompt' }), runtimeDir };
 }
 const context = () => ({ systemPrompt: 'Use tools.', tools: [{ name: 'read', description: 'Read a file',
   parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } }],

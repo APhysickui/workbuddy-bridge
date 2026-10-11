@@ -18,6 +18,8 @@ export function readConfig(env = process.env) {
   }
   const models = new Map();
   const reasoningEffort = env.BRIDGE_REASONING_EFFORT ?? 'low';
+  const toolTransport = env.BRIDGE_TOOL_TRANSPORT ?? 'native';
+  if (!['native', 'prompt'].includes(toolTransport)) throw new Error('Invalid BRIDGE_TOOL_TRANSPORT');
   if (!['minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) throw new Error('Invalid BRIDGE_REASONING_EFFORT');
   for (const entry of (env.BRIDGE_MODELS ?? DEFAULT_MODEL_ALIASES).split(',')) {
     const match = /^([a-zA-Z0-9_.-]+)=([a-zA-Z0-9_.-]+)$/.exec(entry.trim());
@@ -31,6 +33,7 @@ export function readConfig(env = process.env) {
     port: integer(env.BRIDGE_PORT, 18765, 1024, 65535, 'BRIDGE_PORT'),
     timeoutMs: integer(env.BRIDGE_TIMEOUT_MS, 60000, 1000, 300000, 'BRIDGE_TIMEOUT_MS'),
     reasoningEffort,
+    toolTransport,
     models,
     cliPath: env.CODEBUDDY_BIN ?? bundledCli,
     runtimeDir: resolve('.runtime'),

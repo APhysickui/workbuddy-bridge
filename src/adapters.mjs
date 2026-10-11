@@ -1,9 +1,11 @@
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { BridgeError } from './errors.mjs';
 import { anthropicPrompt, deferredClientAction, parseAnthropicResult } from './anthropic.mjs';
 import { CliThinking } from './cli-thinking.mjs';
+import { nativeTools, nativePrompt, parseNativeCliResult, isNativeToolHandoff } from './native-tools.mjs';
 
 export class MockAdapter {
   async complete({ messages, signal }) {
@@ -84,15 +86,16 @@ export function parseCliResult(stdout) {
     } } : {}) };
 }
 
-export function cliArgs(model, systemPromptFile, effort = 'low') {
+export function cliArgs(model, systemPromptFile, effort = 'low', mcpConfig) {
   return [
     '--print', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     '--tools', '',
-    '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
+    '--strict-mcp-config', '--mcp-config', JSON.stringify(mcpConfig ?? { mcpServers: {} }),
+    ...(mcpConfig ? ['--allowedTools', 'mcp__bridge__*'] : []),
     '--setting-sources', 'none', '--settings', '{"disableAllHooks":true,"enabledPlugins":{}}',
     // Some models end a generation with thinking only. The CLI needs another
     // internal turn to obtain text; this does not run the client's agent loop.
-    '--no-session-persistence', '--max-turns', '3',
+    '--no-session-persistence', '--max-turns', mcpConfig ? '1' : '3',
     '--permission-mode', 'dontAsk', '--model', model, '--effort', effort,
     '--system-prompt-file', systemPromptFile
   ];
@@ -117,7 +120,8 @@ export class WorkBuddyAdapter {
   }
 
   async completeAnthropic(input) {
-    const prompt = anthropicPrompt(input);
+    const protocol = (this.config.toolTransport ?? 'native') === 'native' ? nativeTools(input) : null;
+    const prompt = protocol ? nativePrompt(input, protocol) : anthropicPrompt(input);
     const deadline = Date.now() + this.config.timeoutMs;
     const results = [];
     const allThinking = [];
@@ -130,7 +134,7 @@ export class WorkBuddyAdapter {
       const offset = allThinking.length;
       const emitted = new Set();
       const result = await this.invoke({ model: input.model, systemPrompt: prompt.system, history,
-        signal: input.signal, effort: input.effort, timeoutMs, onThinking: event => {
+        signal: input.signal, effort: input.effort, timeoutMs, nativeInput: protocol ? input : undefined, protocol, onThinking: event => {
           if (event.type === 'start') emitted.add(event.index);
           input.onThinking?.({ ...event, index: offset + event.index });
         } });
@@ -143,7 +147,7 @@ export class WorkBuddyAdapter {
         }
         allThinking.push(block);
       }
-      const parsed = parseAnthropicResult(result, input);
+      const parsed = result.parsed ?? parseAnthropicResult(result, input);
       if (!deferredClientAction(parsed, input)) {
         const sum = (field, keys) => results.every(item => item[field])
           ? Object.fromEntries(keys.map(key => [key, results.reduce((total, item) => total + (item[field][key] ?? 0), 0)])) : undefined;
@@ -158,20 +162,30 @@ export class WorkBuddyAdapter {
       }
       if (attempt) throw new BridgeError(502, 'upstream_incomplete_turn', 'The model announced a tool action twice without returning a tool call. The task is incomplete; no tool was inferred or executed.');
       history = [...history, { role: 'assistant', content: [{ type: 'text', text: result.text }] },
-        { role: 'user', content: [{ type: 'text', text: 'Transport correction: your last response ended with an announcement of a tool action but no tool_calls. Continue the existing task now. Return the required JSON envelope with the actual next client tool call, or a completed answer if no tool is needed. Do not repeat the announcement. Respect all client permissions and tool_choice; do not execute tools yourself.' }] }];
+        { role: 'user', content: [{ type: 'text', text: protocol
+          ? 'Transport correction: your last response announced a tool action but did not call a native function. Continue the task now using the available mcp__bridge__ function. Do not print JSON or repeat the announcement. Respect the client instructions and permissions.'
+          : 'Transport correction: your last response ended with an announcement of a tool action but no tool_calls. Continue the existing task now. Return the required JSON envelope with the actual next client tool call, or a completed answer if no tool is needed. Do not repeat the announcement. Respect all client permissions and tool_choice; do not execute tools yourself.' }] }];
     }
   }
 
-  async invoke({ model, systemPrompt, history, signal, onThinking, effort, timeoutMs = this.config.timeoutMs }) {
+  async invoke({ model, systemPrompt, history, signal, onThinking, effort, nativeInput, protocol, timeoutMs = this.config.timeoutMs }) {
     await mkdir(this.config.runtimeDir, { recursive: true, mode: 0o700 });
     if (signal?.aborted) throw new BridgeError(499, 'cancelled', 'Request cancelled');
     const requestDir = await mkdtemp(join(this.config.runtimeDir, 'request-'));
     const promptFile = join(requestDir, 'system.txt');
     try {
       await writeFile(promptFile, systemPrompt, { mode: 0o600 });
+      let mcpConfig;
+      if (protocol?.tools.length) {
+        const manifest = join(requestDir, 'tools.json');
+        await writeFile(manifest, JSON.stringify(protocol.tools), { mode: 0o600 });
+        mcpConfig = { mcpServers: { bridge: { type: 'stdio', command: process.execPath,
+          args: [fileURLToPath(new URL('./mcp-tools.mjs', import.meta.url)), manifest],
+          alwaysLoad: true, defer_loading: false } } };
+      }
       const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('ANTHROPIC_') && !key.startsWith('CLAUDE_')));
       return await new Promise((resolve, reject) => {
-      const child = spawn(this.command, [...this.prefixArgs, ...cliArgs(model, promptFile, effort ?? this.config.reasoningEffort ?? 'low')], {
+      const child = spawn(this.command, [...this.prefixArgs, ...cliArgs(model, promptFile, effort ?? this.config.reasoningEffort ?? 'low', mcpConfig)], {
         cwd: this.config.runtimeDir,
         env,
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -229,6 +243,12 @@ export class WorkBuddyAdapter {
               stop(new BridgeError(502, 'upstream_model_mismatch', 'CLI selected a different model. The request was stopped; no fallback is accepted.'));
             }
             if (value?.type === 'system' && value.subtype === 'init' && value.model === model) modelVerified = true;
+            if (mcpConfig && value?.type === 'system' && value.subtype === 'init') {
+              const available = new Set((value.tools ?? []).map(tool => typeof tool === 'string' ? tool : tool.name));
+              if ([...protocol.aliases.keys()].some(name => !available.has(name))) {
+                stop(new BridgeError(502, 'upstream_native_tools_unavailable', 'The official CLI did not load the client MCP tools. No model tool request was accepted.'));
+              }
+            }
             thinking.read(value);
           }
         }
@@ -245,9 +265,17 @@ export class WorkBuddyAdapter {
       child.on('close', code => {
         cleanup();
         if (failure) return reject(failure);
-        if (code !== 0) return reject(classifyFailure(stdout + '\n' + stderr));
+        if (code !== 0) {
+          // A CLI release may exit 1 at the intentional MCP handoff boundary.
+          // The parser must still find and validate complete native calls.
+          let terminal;
+          for (const line of stdout.split(/\r?\n/)) {
+            try { const value = JSON.parse(line); if (value?.type === 'result') terminal = value; } catch {}
+          }
+          if (code !== 1 || !mcpConfig || !isNativeToolHandoff(terminal)) return reject(classifyFailure(stdout + '\n' + stderr));
+        }
         try {
-          const result = parseCliResult(stdout);
+          const result = nativeInput ? parseNativeCliResult(stdout, nativeInput, protocol, parseCliResult) : parseCliResult(stdout);
           if (model !== 'auto' && result.model !== model) {
             throw new BridgeError(502, 'upstream_model_unverified', 'CLI did not confirm the requested model in its initialization event.');
           }

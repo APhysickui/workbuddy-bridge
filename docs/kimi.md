@@ -10,7 +10,13 @@ npm --prefix /absolute/path/to/workbuddy-bridge run kimi -- --cwd "$PWD" --model
 
 启动器依次核对桥接身份、自动启动服务、验证目标模型的短回复，然后才打开 Kimi。读取本项目 `.env` 中的端口，默认 18765；本地密钥通过进程环境传入，profile 中不保存密钥。localhost / 127.0.0.1 始终排除在代理之外。
 
-模型目录包含 19 个入口，默认 Kimi K3 的上下文为 300,000 tokens、最大输出为 32,000。profile 开启 thinking 显示，桥接转发 CLI 公开返回的思考增量；有些模型或请求可能只返回答案。图片不支持，客户端工具仍是提示转换。profile 中只配置 WorkBuddy 提供商，并将辅助模型也设为启动时选定的入口。新会话无需携带旧会话的超限历史。
+模型目录包含 19 个入口，默认 Kimi K3 的上下文为 300,000 tokens、最大输出为 32,000。profile 开启 thinking 显示，桥接转发 CLI 公开返回的思考增量；有些模型或请求可能只返回答案。图片不支持，客户端工具默认经原生 MCP 函数交接，由 Kimi 执行。profile 中只配置 WorkBuddy 提供商，并将辅助模型也设为启动时选定的入口。新会话无需携带旧会话的超限历史。
+
+## 反复思考、预告动作后停止
+
+旧提示词工具转换可能没有给上游提供真正的函数定义。增加生成轮数仍可能只得到重复 thinking，并报 `bounded recovery turns`。更新到原生 MCP 接法后，执行 `npm run bridge:restart`，退出旧 Kimi 并新建会话验收。无需为本次升级重新迁移已正确的普通 Kimi 配置。
+
+`npm run agent:check -- --model kimi-k3-1` 调用真实模型，要求自动完成两次临时文件读取和最终随机标记，成功必须显示 `AGENT_CHECK_OK`。仅测试通过或显示一次 `hi` 回复不能证明连续工具任务可用；真实账号与原长会话仍需验收。
 
 ## `hi` 触发压缩或连接错误
 

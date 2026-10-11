@@ -14,7 +14,7 @@ const input = { model: 'auto', messages: [{ role: 'user', content: 'hello; $(not
 async function adapterFor(t, mode, timeoutMs = 3000) {
   const runtimeDir = await mkdtemp(join(tmpdir(), 'workbuddy-bridge-test-'));
   t.after(() => rm(runtimeDir, { recursive: true, force: true }));
-  return new WorkBuddyAdapter({ runtimeDir, timeoutMs }, { command: process.execPath, prefixArgs: [fixture, mode] });
+  return new WorkBuddyAdapter({ runtimeDir, timeoutMs, toolTransport: 'prompt' }, { command: process.execPath, prefixArgs: [fixture, mode] });
 }
 
 test('CLI adapter handles startup noise, split UTF-8 and usage without executing input', async t => {
@@ -193,7 +193,7 @@ test('agent checker requires both real client file reads and the exact random fi
   const script = fileURLToPath(new URL('../scripts/agent-check.mjs', import.meta.url));
   const options = { cwd: runtimeDir, timeout: 10000, env: { ...process.env,
     BRIDGE_API_KEY: 'fixture-only-local-key-0123456789abcdef', BRIDGE_BACKEND: 'workbuddy', CODEBUDDY_BIN: fixture,
-    BRIDGE_MODELS: 'test=test', BRIDGE_CLAUDE_MODEL: 'test', WB_FAKE_CLI_MODE: 'agent-check' } };
+    BRIDGE_MODELS: 'test=test', BRIDGE_CLAUDE_MODEL: 'test', BRIDGE_TOOL_TRANSPORT: 'prompt', WB_FAKE_CLI_MODE: 'agent-check' } };
   const { stdout } = await promisify(execFile)(process.execPath, [script, '--model', 'test'], options);
   assert.match(stdout, /AGENT_CHECK_OK/);
   const steps = stdout.split('\n').flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } });

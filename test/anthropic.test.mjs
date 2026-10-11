@@ -17,12 +17,13 @@ test('unfinished tool announcements are distinguished from answers, questions an
   const input = normalizeAnthropic(body, config.models);
   const parsed = text => parseAnthropicResult({ text, usage: null }, input);
   for (const text of ['好，重新读你的文件，看看现在的字数和状态。',
-    '还是超了。我先把全文看一遍再给你精确的改法。', 'Let me read the full draft text.', 'I will read draft.txt.',
+    '还是超了。我先把全文看一遍再给你精确的改法。', '转换出来了，我读一下最新内容。',
+    '看到了。我精确数一下不含空白字符的字数，确认超出多少。', 'Let me read the full draft text.', 'I will read draft.txt.',
     JSON.stringify({ text: "I will inspect the draft next.", tool_calls: [] })]) {
     assert.equal(deferredClientAction(parsed(text), input), true, text);
   }
   for (const text of ['我是 DeepSeek，可以帮你回答问题。', '现在是 1218 字，超出 218 字。',
-    '我已经检查了全文，结果如下。', '我现在检查哪个文件？',
+    '我已经检查了全文，结果如下。', '我现在检查哪个文件？', '我认为你可以运行这个命令。',
     '> I will read the file.', 'First, read the file. Then check its length.']) {
     assert.equal(deferredClientAction(parsed(text), input), false, text);
   }

@@ -4,7 +4,7 @@
 
 A local, experimental bridge from the official CodeBuddy CLI to pi, Claude Code, Kimi Code, and OpenAI/Anthropic-compatible text clients. Uses the CLI’s normal login; no desktop token extraction.
 
-**实验版本。** 已有协议、进程和隔离客户端测试；真实账号端到端调用需要在自己的环境验收。WorkBuddy 工具调用通过提示转换，流式输出在 CLI 回复完成后发送。[兼容范围](docs/compatibility.md) · [模型及输入输出限制](docs/models.md) · [配置说明](docs/configuration.md)
+**实验版本。** 已有协议、进程和隔离客户端测试；真实账号端到端调用需要在自己的环境验收。客户端工具默认通过 CodeBuddy 原生 MCP 函数交接，公开 thinking 增量实时转发，最终文字和工具在校验后发送。[兼容范围](docs/compatibility.md) · [模型及输入输出限制](docs/models.md) · [配置说明](docs/configuration.md)
 
 ## 准备
 
@@ -106,7 +106,9 @@ kimi
 
 如果前三项已通过，只剩 Kimi 文件读取失败，可执行 `npm run local:repair -- --kimi-tools-only` 继续剩余检查。Kimi 2.1.1 不允许 `--prompt` 与 `--yolo` / `--auto` / `--plan` 组合，项目检查命令使用 prompt 模式自身的非交互权限。
 
-如果任务说“我先读文件”后就停止，更新后先执行 `npm run bridge:restart`；pi 使用 `/reload`。桥接不再强制上游 plan 模式，允许最多三轮补齐 thinking-only 输出，并对没有工具调用的明确行动预告纠正一次。纠正后的工具仍由客户端验证、执行和确认权限；两次调用共享原超时，无法补齐时明确报错。
+如果任务说“我先读文件”后就停止，或反复 thinking 后报 `bounded recovery turns`，更新后先执行 `npm run bridge:restart`；pi 使用 `/reload`。默认 `BRIDGE_TOOL_TRANSPORT=native` 向上游提供真正的 MCP 工具定义和参数结构，接收原生函数请求，再交给 Kimi / pi / Claude 执行。MCP 代理只返回交接通知，不执行文件或 shell 操作；桥接校验工具名称、参数和工具选择。此前仅靠工具提示词、增加生成轮数的做法仍会卡住，旧 `prompt` 模式仅供兼容调试。
+
+上游在一轮生成后交回工具请求；只有完整且合法的原生调用才能把这个特定轮数边界视为交接，真正的错误仍报错。没有工具调用的明确行动预告最多纠正一次，共享原超时。更换接法后建议先在新会话验收，避免旧会话携带反复空转的历史。
 
 可运行 `npm run agent:check -- --model kimi-k3-1` 验证连续任务。它要求真实模型依次读取两个临时随机文件，再返回只存在于第二个文件的标记，全程不输入“继续”。这会消耗积分；验证的是模型与桥接适配器的连续工具流程，客户端 UI 和原长会话仍需实际观察。
 
@@ -147,6 +149,6 @@ npm run integration:check
 
 此命令验证 WorkBuddy 工具往返、Claude 和 pi 的文字及读取临时随机文件结果，会调用真实模型并可能消耗积分。官方 CLI 可回复不等于桥接端到端已通过。缺少本地客户端时，相应隔离客户端测试会跳过；CI 不需要账号。
 
-WorkBuddy 使用积分，pi 的美元费率 0 只是未知占位，不代表免费。积分共享、模型权限和实际价格以[官方说明](https://www.codebuddy.cn/docs/workbuddy/Pricing)及账号记录为准。模型列表是 2026-10-06 的官方目录快照，不保证每个账号都能调用。图片、音频和完整原生工具协议尚未支持；公开思考内容以 CLI 实际输出为准，失败不会自动切换服务商。
+WorkBuddy 使用积分，pi 的美元费率 0 只是未知占位，不代表免费。积分共享、模型权限和实际价格以[官方说明](https://www.codebuddy.cn/docs/workbuddy/Pricing)及账号记录为准。模型列表是 2026-10-06 的官方目录快照，不保证每个账号都能调用。图片、音频和完整原生会话协议尚未支持；历史仍作为 JSON 对话提示提交。公开思考内容以 CLI 实际输出为准，失败不会自动切换服务商。
 
 `.env`、本地 Claude 设置、运行日志和私有调试记录均不应提交。参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)。采用 [MIT](LICENSE) 许可证。

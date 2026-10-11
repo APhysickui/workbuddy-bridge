@@ -116,10 +116,11 @@ export function deferredClientAction(result, input) {
   if (input.toolChoice.type !== 'auto' || !input.tools.length || result.stopReason !== 'end_turn') return false;
   const text = result.content.filter(block => block.type === 'text').map(block => block.text).join('\n').trim();
   if (/[?？]$/.test(text)) return false;
-  const closing = text.split(/[。！？!?\n]+|\.(?:\s+|$)/).filter(part => part.trim()).at(-1)?.trim() ?? '';
+  const closing = (text.split(/[。！？!?\n]+|\.(?:\s+|$)/).filter(part => part.trim()).at(-1)?.trim() ?? '')
+    .replace(/^(?:转换出来了|看到了)[，,]\s*/, '');
   if (closing.length > 240 || /^[>\-`"“]/.test(closing)) return false;
   return /^(?:(?:ok(?:ay)?|sure|first|next)[,:，]?\s*)?(?:let me|I(?: will|'ll|’ll| am going to))\s+(?:re[- ]?)?(?:read|check|inspect|run|execute|search|fetch|open|review|convert|look at)\b/i.test(closing) ||
-    /^(?:好(?:的)?[，,、]?\s*)?(?:我|我们)?(?:先|现在|接着|再|准备|将|马上|会|继续|重新).{0,40}(?:读|看|检查|核对|运行|执行|搜索|打开|转换|检索)/.test(closing) && !/(?:已经|完成了|检查了|读取了|运行了)/.test(closing);
+    /^(?:好(?:的)?[，,、]?\s*)?(?:(?:我|我们)(?:先|现在|接着|再|准备|将|马上|会|继续|重新|精确){0,3}|(?:先|现在|接着|再|准备|将|马上|会|继续|重新){1,3})(?:把.{0,40})?(?:读|看|检查|核对|运行|执行|搜索|打开|转换|检索|数一下|统计)/.test(closing) && !/(?:已经|完成了|检查了|读取了|运行了)/.test(closing);
 }
 
 // Validate common JSON Schema constraints. Claude Code also validates its own tool arguments.
