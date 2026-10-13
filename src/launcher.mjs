@@ -54,6 +54,9 @@ export async function runClient(command, args, options = {}) {
       cleanup();
       if (options.capture) kill('SIGKILL');
       if (failure) reject(failure);
+      else if (code !== 0 && stderr.split(/\r?\n/).includes('Error: Input must be provided either through stdin or as a prompt argument when using --print')) {
+        reject(Object.assign(new Error(`${command} 未收到提示词：请使用 -- 分隔 CLI 选项与提示词。`), { code: 'client_prompt_missing', exitCode: code }));
+      }
       else if (code !== 0 && /(?:^|\n)error: (Cannot combine --[a-z-]+ with --[a-z-]+)\.?\s*(?:\n|$)/.test(stderr)) {
         // Expose only the known argument diagnostic, never arbitrary stderr.
         const detail = stderr.match(/(?:^|\n)error: (Cannot combine --[a-z-]+ with --[a-z-]+)/)[1];

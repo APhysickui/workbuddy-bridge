@@ -47,7 +47,8 @@ try {
   delete clientEnv.DISABLE_PROMPT_CACHING;
   const claude = ['--print', '--no-session-persistence', '--model', config.claudeModel,
     '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--settings', join(project, '.claude/settings.local.json')];
-  const text = await runClient('claude', [...claude, '--output-format', 'json', '--tools', '', 'Reply with CLAUDE_WORKBUDDY_OK only.'],
+  // --tools is variadic in Claude; terminate options before the prompt.
+  const text = await runClient('claude', [...claude, '--output-format', 'json', '--tools', '', '--', 'Reply with CLAUDE_WORKBUDDY_OK only.'],
     { cwd: project, env: clientEnv, capture: true, timeout: config.timeoutMs + 30000 });
   console.log(JSON.stringify(verifyClaudeCheck(text)));
 
@@ -56,7 +57,7 @@ try {
   const fileMarker = 'WORKBUDDY_FILE_' + randomUUID();
   await writeFile(fixture, fileMarker, { mode: 0o600 });
   const claudeTools = await runClient('claude', [...claude, '--output-format', 'stream-json', '--verbose',
-    '--tools', 'Read', '--allowedTools', 'Read', '--max-turns', '4',
+    '--tools', 'Read', '--allowedTools', 'Read', '--max-turns', '4', '--',
     `Use Read to read ${fixture} and reply with the exact file content only.`],
   { cwd: project, env: clientEnv, capture: true, timeout: config.timeoutMs * 3 });
   const events = claudeTools.split(/\r?\n/).flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } });

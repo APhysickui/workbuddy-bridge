@@ -21,3 +21,13 @@ test('other early client failures never disclose raw stderr', async () => {
     return true;
   });
 });
+
+test('missing Claude print prompt is diagnosed without exposing other stderr', async () => {
+  const script = 'process.stderr.write("Error: Input must be provided either through stdin or as a prompt argument when using --print\\nprivate_key=DO_NOT_EXPOSE\\n"); process.exit(1);';
+  await assert.rejects(runClient(process.execPath, ['--eval', script], { capture: true, timeout: 5000 }), error => {
+    assert.equal(error.code, 'client_prompt_missing');
+    assert.match(error.message, /-- 分隔/);
+    assert.ok(!error.message.includes('DO_NOT_EXPOSE'));
+    return true;
+  });
+});
