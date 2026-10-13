@@ -25,7 +25,7 @@ try {
     process.exitCode = 1;
   });
   server.listen(config.port, config.host, () => {
-    console.log(`WorkBuddy Bridge: http://${config.host}:${config.port}/v1 (backend=${config.backend}, experimental Anthropic tools, buffered SSE)`);
+    console.log(`WorkBuddy Bridge: http://${config.host}:${config.port}/v1 (backend=${config.backend}, tools=${config.toolTransport}, live thinking / buffered answer)`);
   });
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, config.shutdown);
 } catch (error) {

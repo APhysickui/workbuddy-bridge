@@ -1,4 +1,5 @@
 import { catalogModel, catalogContextWindow, modelDisplayName } from './model-catalog.mjs';
+import { hasExactTextReply } from './preflight.mjs';
 
 export const KIMI_PROVIDER_ID = 'workbuddy-bridge';
 export const KIMI_CHECK_REPLY = 'KIMI_WORKBUDDY_OK';
@@ -62,8 +63,7 @@ export async function checkKimiUpstream(config, model, fetcher = fetch) {
   let body;
   try { body = await response.json(); } catch { throw new Error('WorkBuddy 桥接返回了无法识别的响应；未启动 Kimi 会话。'); }
   if (!response.ok) throw new Error(`WorkBuddy 预检失败（HTTP ${response.status}）：${body.error?.message ?? '请检查官方 CodeBuddy 登录及桥接配置。'}`);
-  if (body.model !== model || body.stop_reason !== 'end_turn' || body.content?.length !== 1 ||
-      body.content[0]?.type !== 'text' || typeof body.content[0]?.text !== 'string' || body.content[0].text.trim() !== KIMI_CHECK_REPLY) {
+  if (body.model !== model || body.stop_reason !== 'end_turn' || !hasExactTextReply(body.content, KIMI_CHECK_REPLY)) {
     throw new Error('WorkBuddy 预检未返回目标模型的准确回复；未启动 Kimi 会话。');
   }
 }

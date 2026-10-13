@@ -7,7 +7,7 @@ import { checkClaudeUpstream, verifyClaudeCheck } from '../src/claude-preflight.
 const config = readConfig({ BRIDGE_API_KEY: 'test-local-key-0123456789abcdef', BRIDGE_BACKEND: 'workbuddy',
   BRIDGE_MODELS: 'deepseek-v4-flash=deepseek-v4-flash', BRIDGE_CLAUDE_MODEL: 'deepseek-v4-flash' });
 
-test('preflight demands a real backend and an exact text-only completion', async () => {
+test('preflight demands a real backend and exact final text, allowing public thinking', async () => {
   let calls = 0;
   const adapter = { completeAnthropic: async input => {
     calls++;
@@ -18,7 +18,16 @@ test('preflight demands a real backend and an exact text-only completion', async
   await assert.rejects(checkClaudeUpstream({ ...config, backend: 'mock' }, adapter), /mock replies/);
   assert.equal(calls, 0);
   assert.equal((await checkClaudeUpstream(config, adapter)).content[0].text, 'WORKBUDDY_UPSTREAM_OK');
+  const thought = { type: 'thinking', thinking: 'Follow the requested reply.', signature: '' };
+  const withThinking = { content: [thought, { type: 'text', text: 'WORKBUDDY_' },
+    { type: 'text', text: 'UPSTREAM_OK' }], stopReason: 'end_turn' };
+  assert.equal(await checkClaudeUpstream(config, { completeAnthropic: async () => withThinking }), withThinking);
   for (const result of [
+    { content: [thought], stopReason: 'end_turn' },
+    { content: [thought, { type: 'text', text: 'wrong' }], stopReason: 'end_turn' },
+    { content: [null], stopReason: 'end_turn' },
+    { content: 'invalid', stopReason: 'end_turn' },
+    { content: [{ type: 'thinking', thinking: 123 }, { type: 'text', text: 'WORKBUDDY_UPSTREAM_OK' }], stopReason: 'end_turn' },
     { content: [{ type: 'text', text: 'ordinary reply' }], stopReason: 'end_turn' },
     { content: [{ type: 'text', text: 'WORKBUDDY_UPSTREAM_OK' }], stopReason: 'tool_use' },
     { content: [{ type: 'text', text: 'WORKBUDDY_UPSTREAM_OK' }, { type: 'tool_use' }], stopReason: 'end_turn' }

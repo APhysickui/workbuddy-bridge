@@ -12,7 +12,7 @@ class Capture extends EventEmitter {
   writableEnded = false;
   destroyed = false;
   headersSent = false;
-  writeHead(status, headers) { this.status = status; this.headers = headers; this.headersSent = true; }
+  writeHead(status, headers) { this.status = status; this.headers = { ...this.headers, ...headers }; this.headersSent = true; }
   setHeader(name, value) { this.headers ??= {}; this.headers[name] = value; }
   write(value) { this.chunks.push(value); return true; }
   end(value) { if (value) this.chunks.push(value); this.writableEnded = true; this.emit('close'); }
@@ -44,6 +44,25 @@ test('health describes demo and does not claim upstream or credit verification',
   assert.equal(res.status, 200);
   assert.equal(JSON.parse(res.body).backend, 'mock');
   assert.equal(JSON.parse(res.body).credit_sharing_verified, false);
+});
+
+test('health, status and response headers report the selected tool transport', async () => {
+  for (const [toolTransport, capability, header] of [
+    ['native', 'native_mcp_client_handoff', 'native-mcp-client-handoff'],
+    ['prompt', 'experimental_prompt_translation', 'experimental-prompt-tools']
+  ]) {
+    const handler = createHandler({ ...config, toolTransport }, new MockAdapter());
+    const health = JSON.parse((await call(handler, '/health')).body);
+    const status = JSON.parse((await call(handler, '/_bridge/status')).body);
+    assert.equal(health.tool_transport, status.tool_transport);
+    assert.equal(health.tool_transport, toolTransport);
+    assert.equal(health.anthropic_tools, capability);
+    for (const stream of [false, true]) {
+      const response = await call(handler, '/v1/messages', { model: 'wb-auto', max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }], stream });
+      assert.equal(response.headers['x-bridge-compatibility'], header);
+    }
+  }
 });
 
 test('model and completion endpoints require the local key', async () => {

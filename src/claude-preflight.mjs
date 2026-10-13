@@ -1,5 +1,6 @@
 import { BridgeError } from './errors.mjs';
 import { normalizeAnthropic } from './anthropic.mjs';
+import { hasExactTextReply } from './preflight.mjs';
 
 const expected = 'WORKBUDDY_UPSTREAM_OK';
 
@@ -24,9 +25,8 @@ export async function checkClaudeUpstream(config, adapter) {
     tools: []
   }, config.models);
   const result = await adapter.completeAnthropic(input);
-  const text = result.content?.filter(block => block.type === 'text').map(block => block.text).join('');
-  if (result.stopReason !== 'end_turn' || result.content?.some(block => block.type !== 'text') || text?.trim() !== expected) {
-    throw new BridgeError(502, 'upstream_preflight_failed', 'WorkBuddy did not return the expected text-only preflight reply. Claude integration was not started.');
+  if (result.stopReason !== 'end_turn' || !hasExactTextReply(result.content, expected)) {
+    throw new BridgeError(502, 'upstream_preflight_failed', 'WorkBuddy did not return the expected final preflight reply. Claude integration was not started.');
   }
   return result;
 }

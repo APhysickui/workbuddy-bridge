@@ -49,6 +49,19 @@ test('errors after a public thought produce an explicit failure, never message_s
   assert.ok(!text.includes('event: message_stop'));
 });
 
+test('a divergent final thinking block fails instead of corrupting the client transcript', async () => {
+  const handler = createHandler(config, { completeAnthropic: async input => {
+    input.onThinking({ type: 'start', index: 0, thinking: 'First.' });
+    input.onThinking({ type: 'stop', index: 0 });
+    return { content: [{ type: 'thinking', thinking: 'Different.', signature: '' }, { type: 'text', text: 'Do not emit.' }], stopReason: 'end_turn' };
+  } });
+  const response = await createLocalFetch(handler)('http://workbuddy-cli.local/v1/messages', init());
+  const text = await response.text();
+  assert.match(text, /event: error/);
+  assert.ok(!text.includes('Do not emit.'));
+  assert.ok(!text.includes('event: message_stop'));
+});
+
 test('cancelling a local response body cancels upstream work and releases the request slot', { timeout: 5000 }, async () => {
   let signal;
   let settled;

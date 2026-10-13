@@ -77,6 +77,20 @@ if (mode === 'hang') {
     else if (results.length === 1) output({ text: 'Reading draft.', tool_calls: [{ name: 'read', input: { path: 'draft.txt' } }] });
     else output({ text: `Checked both files: ${results.at(-1).content}`, tool_calls: [] });
   }
+} else if (mode === 'thinking-mixed') {
+  const event = event => console.log(JSON.stringify({ type: 'stream_event', event }));
+  const snapshot = (id, thinking) => console.log(JSON.stringify({ type: 'assistant', message: {
+    id, content: [{ type: 'thinking', thinking, signature: '' }] } }));
+  snapshot('earlier', 'Earlier.');
+  event({ type: 'message_start', message: { id: 'live' } });
+  event({ type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '' } });
+  event({ type: 'content_block_stop', index: 0 });
+  event({ type: 'content_block_start', index: 1, content_block: { type: 'thinking', thinking: 'Live.' } });
+  event({ type: 'content_block_stop', index: 1 });
+  snapshot('live', 'Live.');
+  snapshot('later', 'Later.');
+  console.log(JSON.stringify({ type: 'result', subtype: 'success', result: JSON.stringify({
+    text: 'Reading.', tool_calls: [{ name: 'read', input: { path: 'hello.txt' } }] }) }));
 } else if (mode.startsWith('thinking-')) {
   if (mode === 'thinking-effort') assert.equal(flag('--effort'), 'high');
   const event = event => console.log(JSON.stringify({ type: 'stream_event', event, parent_tool_use_id: null }));

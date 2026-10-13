@@ -43,6 +43,7 @@ async function readBody(request, maxBytes) {
 
 export function createHandler(config, adapter, forward = forwardAnthropic) {
   const models = claudeRouteModels(config);
+  const toolTransport = config.toolTransport ?? 'native';
   let active = false;
   let upstreamVerified = false;
   return async (request, response) => {
@@ -59,7 +60,8 @@ export function createHandler(config, adapter, forward = forwardAnthropic) {
       const url = new URL(request.url, 'http://127.0.0.1');
       anthropic = url.pathname === '/v1/messages' || url.pathname === '/v1/messages/count_tokens';
       if (request.method === 'GET' && url.pathname === '/health') {
-        return json(response, 200, { status: 'ok', backend: config.backend, text_only: false, anthropic_tools: 'experimental_prompt_translation',
+        return json(response, 200, { status: 'ok', backend: config.backend, text_only: false,
+          tool_transport: toolTransport, anthropic_tools: toolTransport === 'native' ? 'native_mcp_client_handoff' : 'experimental_prompt_translation',
           upstream_verified: upstreamVerified, credit_sharing_verified: false, stream_mode: 'live_thinking_buffered_answer', busy: active });
       }
       if (!authenticated(request.headers.authorization, config.apiKey) && !apiKeyAuthenticated(request.headers['x-api-key'], config.apiKey)) {
@@ -104,7 +106,7 @@ export function createHandler(config, adapter, forward = forwardAnthropic) {
       const id = `${kind === 'chat' ? 'chatcmpl' : kind === 'anthropic' ? 'msg' : 'resp'}_${randomUUID().replaceAll('-', '')}`;
       const created = Math.floor(Date.now() / 1000);
       if (kind === 'anthropic') {
-        response.setHeader('x-bridge-compatibility', 'experimental-prompt-tools');
+        response.setHeader('x-bridge-compatibility', toolTransport === 'native' ? 'native-mcp-client-handoff' : 'experimental-prompt-tools');
         response.setHeader('x-bridge-advisory-fields', input.advisoryFields.join(','));
         response.setHeader('x-bridge-stream-mode', 'live-thinking-buffered-answer');
       }

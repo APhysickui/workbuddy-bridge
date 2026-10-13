@@ -49,7 +49,7 @@ try {
   });
   console.log(`WorkBuddy → Claude Code: model=${config.claudeModel}, backend=${config.backend}`);
   console.log(`Local endpoint: http://127.0.0.1:${config.port}; workspace: ${playground}`);
-  console.log('Experimental prompt-based tool translation. Claude Code end-to-end compatibility and credit sharing remain unverified.');
+  console.log(`Client tool transport: ${config.toolTransport}. Claude Code end-to-end compatibility and credit sharing remain unverified.`);
   const args = ['--bare', '--setting-sources', '', '--settings', settingsFile,
     '--model', config.claudeModel, '--effort', 'low',
     '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',

@@ -4,7 +4,7 @@ import { Readable } from 'node:stream';
 import { EventEmitter } from 'node:events';
 import { readConfig } from '../src/config.mjs';
 import { createHandler } from '../src/server.mjs';
-import { normalizeAnthropic, parseAnthropicResult, deferredClientAction, anthropicEvents, anthropicMessage } from '../src/anthropic.mjs';
+import { normalizeAnthropic, parseAnthropicResult, deferredClientAction, anthropicEvents, anthropicMessage, anthropicPrompt } from '../src/anthropic.mjs';
 import { claudeEnvironment, claudeSettings, directClaudeSettings } from '../src/claude-config.mjs';
 
 const config = readConfig({ BRIDGE_API_KEY: 'test-local-key-0123456789abcdef',
@@ -125,6 +125,26 @@ test('forced and disabled tool choices are enforced', () => {
   assert.throws(() => parseAnthropicResult({ text: 'I will read it.', usage: null }, any));
   const required = normalizeAnthropic({ ...body, tool_choice: { type: 'tool', name: 'Read' } }, config.models);
   assert.throws(() => parseAnthropicResult({ text: 'I will read it.' }, required));
+});
+
+test('serial tool choice rejects parallel calls without dropping any actions', () => {
+  const call = { name: 'Read', input: { file_path: 'a' } };
+  for (const type of ['auto', 'any', 'tool']) {
+    const choice = { type, ...(type === 'tool' ? { name: 'Read' } : {}) };
+    for (const flag of [undefined, false, true]) {
+      const input = normalizeAnthropic({ ...body, tool_choice: { ...choice,
+        ...(flag === undefined ? {} : { disable_parallel_tool_use: flag }) } }, config.models);
+      const result = { text: JSON.stringify({ text: '', tool_calls: [call, call] }) };
+      if (flag === true) {
+        assert.match(anthropicPrompt(input).system, /at most one.*tool/i);
+        assert.throws(() => parseAnthropicResult(result, input), /disable_parallel_tool_use/);
+      } else assert.equal(parseAnthropicResult(result, input).content.length, 2);
+      assert.equal(parseAnthropicResult({ text: JSON.stringify({ text: '', tool_calls: [call] }) }, input).stopReason, 'tool_use');
+    }
+  }
+  for (const flag of ['true', 1, null, {}]) {
+    assert.throws(() => normalizeAnthropic({ ...body, tool_choice: { type: 'auto', disable_parallel_tool_use: flag } }, config.models), /must be boolean/);
+  }
 });
 
 test('Anthropic SSE tool arguments reconstruct and complete with tool_use', () => {

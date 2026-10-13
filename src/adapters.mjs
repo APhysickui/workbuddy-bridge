@@ -53,12 +53,11 @@ export function parseCliResult(stdout) {
   } catch {}
   if (!result) {
     for (const line of stdout.split(/\r?\n/)) {
-      try {
-        const value = JSON.parse(line);
-        thinking.read(value);
-        if (value?.type === 'system' && value.subtype === 'init' && typeof value.model === 'string') model = value.model;
-        if (value?.type === 'result') result = value;
-      } catch {}
+      let value;
+      try { value = JSON.parse(line); } catch { continue; }
+      thinking.read(value);
+      if (value?.type === 'system' && value.subtype === 'init' && typeof value.model === 'string') model = value.model;
+      if (value?.type === 'result') result = value;
     }
   }
   if (!result) throw new BridgeError(502, 'upstream_invalid_output', 'CLI did not return a recognized JSON result.');
@@ -249,7 +248,9 @@ export class WorkBuddyAdapter {
                 stop(new BridgeError(502, 'upstream_native_tools_unavailable', 'The official CLI did not load the client MCP tools. No model tool request was accepted.'));
               }
             }
-            thinking.read(value);
+            if (!failure) {
+              try { thinking.read(value); } catch (error) { stop(error); }
+            }
           }
         }
         else stderr += chunk;
@@ -275,6 +276,12 @@ export class WorkBuddyAdapter {
           if (code !== 1 || !mcpConfig || !isNativeToolHandoff(terminal)) return reject(classifyFailure(stdout + '\n' + stderr));
         }
         try {
+          // A final stream-json record need not end in a newline. Feed it to
+          // the live parser too, so its ordering agrees with final parsing.
+          let trailing;
+          try { trailing = JSON.parse(lines); } catch {}
+          if (trailing) thinking.read(trailing);
+          thinking.finish();
           const result = nativeInput ? parseNativeCliResult(stdout, nativeInput, protocol, parseCliResult) : parseCliResult(stdout);
           if (model !== 'auto' && result.model !== model) {
             throw new BridgeError(502, 'upstream_model_unverified', 'CLI did not confirm the requested model in its initialization event.');

@@ -55,7 +55,14 @@ test('Kimi preflight verifies an authenticated Anthropic reply and rejects netwo
   assert.equal(calls, 1);
   await assert.rejects(checkKimiUpstream(config, 'kimi-k3-1', async () => { throw new Error('ECONNREFUSED'); }), /无法连接/);
   const good = { model: 'kimi-k3-1', stop_reason: 'end_turn', content: [{ type: 'text', text: KIMI_CHECK_REPLY }] };
+  const thought = { type: 'thinking', thinking: 'Follow the requested reply.', signature: '' };
+  await checkKimiUpstream(config, 'kimi-k3-1', async () => Response.json({ ...good,
+    content: [thought, { type: 'text', text: 'KIMI_WORKBUDDY_' }, { type: 'text', text: 'OK' }] }));
   for (const body of [{ ...good, model: 'other' }, { ...good, content: [{ type: 'text', text: 'hi' }] },
+    { ...good, content: [thought] }, { ...good, content: [thought, { type: 'text', text: 'wrong' }] },
+    { ...good, content: [null] }, { ...good, content: {} },
+    { ...good, content: [...good.content, { type: 'tool_use' }] },
+    { ...good, content: [...good.content, { type: 'redacted_thinking', data: 'opaque' }] },
     { ...good, stop_reason: 'tool_use' }]) {
     await assert.rejects(checkKimiUpstream(config, 'kimi-k3-1', async () => Response.json(body)), /准确回复/);
   }

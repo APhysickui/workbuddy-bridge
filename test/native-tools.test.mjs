@@ -12,6 +12,8 @@ import { nativeTools, nativePrompt, parseNativeCliResult } from '../src/native-t
 import { normalizeAnthropic } from '../src/anthropic.mjs';
 import { readConfig } from '../src/config.mjs';
 import { directPiProvider } from '../src/pi-direct.mjs';
+import { createHandler } from '../src/server.mjs';
+import { call } from './helpers.mjs';
 
 const cli = fileURLToPath(new URL('./fixtures/native-cli.mjs', import.meta.url));
 const models = new Map([['test', 'test']]);
@@ -79,6 +81,21 @@ test('split parallel snapshots preserve both native calls without trusting the p
   const { adapter } = await setup(t, 'parallel');
   const result = await adapter.completeAnthropic(request());
   assert.deepEqual(result.content.filter(block => block.type === 'tool_use').map(block => block.input.path), ['index.txt', 'second.txt']);
+});
+
+test('native serial tool choice fails before any client tool event is sent', async t => {
+  const { adapter, config } = await setup(t, 'parallel');
+  const tool_choice = { type: 'auto', disable_parallel_tool_use: true };
+  const input = request({ tool_choice });
+  assert.match(nativePrompt(input, nativeTools(input)).system, /at most one.*(?:tool|function)/i);
+  await assert.rejects(adapter.completeAnthropic(input), { code: 'upstream_invalid_tool_protocol' });
+  const response = await call(createHandler(config, adapter), config, '/v1/messages', {
+    model: 'test', max_tokens: 1024, stream: true, tools: [tool], tool_choice,
+    messages: [{ role: 'user', content: 'Read both files.' }]
+  });
+  assert.match(response.body, /disable_parallel_tool_use/);
+  assert.ok(!response.body.includes('"type":"tool_use"'));
+  assert.ok(!response.body.includes('event: message_stop'));
 });
 
 test('missing schemas, unknown native tools, invalid arguments and duplicates fail without fabricating actions', async t => {
