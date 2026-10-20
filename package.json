@@ -8,6 +8,10 @@
   "engines": { "node": ">=22.9.0" },
   "scripts": {
     "init": "node scripts/init.mjs",
+    "credits:status": "node tools/daily-checkin/checkin.mjs --status",
+    "credits:claim": "node tools/daily-checkin/checkin.mjs",
+    "credits:install": "node tools/daily-checkin/schedule.mjs --install",
+    "credits:uninstall": "node tools/daily-checkin/schedule.mjs --uninstall",
     "start": "node --env-file-if-exists=.env src/main.mjs",
     "doctor": "node --env-file-if-exists=.env scripts/doctor.mjs",
     "models": "node --env-file-if-exists=.env scripts/models.mjs",

@@ -152,3 +152,7 @@ npm run integration:check
 WorkBuddy 使用积分，pi 的美元费率 0 只是未知占位，不代表免费。积分共享、模型权限和实际价格以[官方说明](https://www.codebuddy.cn/docs/workbuddy/Pricing)及账号记录为准。模型列表是 2026-10-06 的官方目录快照，不保证每个账号都能调用。图片、音频和完整原生会话协议尚未支持；历史仍作为 JSON 对话提示提交。公开思考内容以 CLI 实际输出为准，失败不会自动切换服务商。
 
 `.env`、本地 Claude 设置、运行日志和私有调试记录均不应提交。参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)。采用 [MIT](LICENSE) 许可证。
+
+## Buddy 加油站每日签到（实验性）
+
+WorkBuddy 在后台保持登录时，可尝试通过 App 自带本地通道领取每日签到积分；额度以官方活动规则为准。在普通 macOS 终端运行 `npm run credits:install`，它先验证真实签到，再安装每天 09:05、每小时补查的定时任务。仅查询用 `npm run credits:status`，移除用 `npm run credits:uninstall`。当前开发环境的本地 socket 权限受限，尚未验证真实领取；如果要求设备验证则停止，不会绕过。详见 [签到脚本说明](tools/daily-checkin/README.md)。

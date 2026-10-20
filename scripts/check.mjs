@@ -14,7 +14,7 @@ async function sourceFiles(directory) {
   }));
   return groups.flat();
 }
-const files = (await Promise.all(['src', 'scripts', 'test', '.pi/extensions'].map(sourceFiles))).flat();
+const files = (await Promise.all(['src', 'scripts', 'test', 'tools', '.pi/extensions'].map(sourceFiles))).flat();
 for (const file of files) execFileSync(process.execPath, ['--check', resolve(root, file)], { stdio: 'pipe' });
 
 const ids = new Set();
