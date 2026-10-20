@@ -1,4 +1,4 @@
-export const BRIDGE_PROTOCOL = 7;
+export const BRIDGE_PROTOCOL = 8;
 
 export function bridgeIdentity(config) {
   return { bridge: 'workbuddy-bridge', protocol: BRIDGE_PROTOCOL, backend: config.backend,
@@ -14,7 +14,7 @@ export async function readBridgeStatus(config, fetcher = fetch) {
     });
   } catch (error) {
     const codes = [error.cause?.code, ...(error.cause?.errors ?? []).map(value => value.code)];
-    if (codes.includes('EPERM') || codes.includes('EACCES')) throw new Error('当前执行环境不允许连接本地端口；请在普通终端运行对应的 Claude / pi / Kimi 启动命令。');
+    if (codes.includes('EPERM') || codes.includes('EACCES')) throw new Error('当前执行环境不允许连接本地端口；请在普通终端运行对应的 Codex / Claude / pi / Kimi 启动命令。');
     if (codes.includes('ECONNREFUSED') || error.name === 'TimeoutError' || codes.includes('ECONNRESET')) return null;
     throw new Error('无法检查本地桥接服务，未自动启动替代服务。');
   }

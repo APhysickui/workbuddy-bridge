@@ -1,16 +1,16 @@
 # WorkBuddy Bridge
 
-通过已登录的官方 CodeBuddy CLI，在 **pi、Claude Code、Kimi Code 和本地 API 客户端**中使用 WorkBuddy 模型。模型名称带 **（workbuddy）** 后缀，pi / Claude 默认 **DeepSeek V4.1 Flash**，Kimi 启动器默认 **Kimi K3**。目录包含 19 个入口，涵盖 DeepSeek、GLM、Kimi、MiniMax、混元及官方自动档位。
+通过已登录的官方 CodeBuddy CLI，在 **Codex CLI、pi、Claude Code、Kimi Code 和本地 API 客户端**中使用 WorkBuddy 模型。模型名称带 **（workbuddy）** 后缀，pi / Claude 默认 **DeepSeek V4.1 Flash**，Kimi 启动器默认 **Kimi K3**。目录包含 19 个入口，涵盖 DeepSeek、GLM、Kimi、MiniMax、混元及官方自动档位。
 
-A local, experimental bridge from the official CodeBuddy CLI to pi, Claude Code, Kimi Code, and OpenAI/Anthropic-compatible text clients. Uses the CLI’s normal login; no desktop token extraction.
+A local, experimental bridge from the official CodeBuddy CLI to Codex CLI, pi, Claude Code, Kimi Code, and OpenAI/Anthropic-compatible clients. Uses the CLI’s normal login; no desktop token extraction.
 
 **实验版本。** 已有协议、进程和隔离客户端测试；真实账号端到端调用需要在自己的环境验收。客户端工具默认通过 CodeBuddy 原生 MCP 函数交接，公开 thinking 增量实时转发，最终文字和工具在校验后发送。[兼容范围](docs/compatibility.md) · [模型及输入输出限制](docs/models.md) · [配置说明](docs/configuration.md)
 
 ## 准备
 
-需要 Node.js **22.9+**、已安装并能正常回复的官方 CodeBuddy CLI，以及要使用的 pi 或 Claude Code。项目无 npm 依赖；Claude 原服务商透传另需系统 `curl`。
+需要 Node.js **22.9+**、已安装并能正常回复的官方 CodeBuddy CLI，以及要使用的 Codex / pi / Claude / Kimi 客户端。项目无 npm 依赖；Claude 原服务商透传另需系统 `curl`。
 
-无需一直开启 WorkBuddy 桌面应用，调用依赖官方 CodeBuddy CLI 的正常登录。pi 的 WorkBuddy 扩展直接启动 CLI；Kimi / Claude Code 的接入需要本地桥接服务在后台运行，启动 hook 会自动检查并拉起服务。
+无需一直开启 WorkBuddy 桌面应用，调用依赖官方 CodeBuddy CLI 的正常登录。pi 的 WorkBuddy 扩展直接启动 CLI；Codex / Kimi / Claude Code 的接入需要本地桥接服务在后台运行，启动 hook 会自动检查并拉起服务。
 
 ```sh
 cd workbuddy-bridge
@@ -25,6 +25,19 @@ CODEBUDDY_BIN=/absolute/path/to/codebuddy
 ```
 
 用 `command -v codebuddy` 确认入口。`CODEBUDDY_BIN` 必须指向官方 CLI 的 JavaScript 文件，桥接使用 Node 启动它。其余参数见 `.env.example`。可先运行 `npm run doctor` 检查路径和配置；这不会调用模型。
+
+## 使用 Codex CLI
+
+在 Codex 中使用 WorkBuddy 模型和客户端工具：
+
+```sh
+npm run bridge:restart    # 已运行旧版桥接时，先加载协议 8
+npm run codex
+npm run codex -- --model kimi-k3-1 --cwd /path/to/project
+npm run codex:check       # 真实短回复 + 随机文件读取验证，会消耗积分
+```
+
+启动参数只作用于这次进程，保留原 Codex 全局配置和登录。支持 Responses 文字、公开思考、函数工具、namespace 及 `apply_patch` 文本工具；工具由 Codex 按自身沙箱/审批执行。当前校验版本为 Codex CLI 0.163.0，真实模型流程需在普通终端验收。详见 [Codex 接入说明](docs/codex.md)。
 
 ## 使用 pi
 

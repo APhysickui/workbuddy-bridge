@@ -1,7 +1,8 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { once } from 'node:events';
 import { BridgeError } from './errors.mjs';
-import { normalize, chatCompletion, responseObject, chatEvents, responseEvents } from './protocol.mjs';
+import { normalize, chatCompletion, chatEvents } from './protocol.mjs';
+import { normalizeResponses, responseObject, responseEvents, ResponsesThinkingStream } from './responses.mjs';
 import { normalizeAnthropic, anthropicMessage, anthropicEvents, estimatedInputTokens } from './anthropic.mjs';
 import { forwardAnthropic } from './passthrough.mjs';
 import { bridgeIdentity } from './bridge-service.mjs';
@@ -49,6 +50,8 @@ export function createHandler(config, adapter, forward = forwardAnthropic) {
   return async (request, response) => {
     let ownsSlot = false;
     let anthropic = false;
+    let responses = false;
+    let live;
     const controller = new AbortController();
     const disconnected = () => { if (!response.writableEnded) controller.abort(); };
     const shutdown = () => controller.abort();
@@ -59,6 +62,7 @@ export function createHandler(config, adapter, forward = forwardAnthropic) {
     try {
       const url = new URL(request.url, 'http://127.0.0.1');
       anthropic = url.pathname === '/v1/messages' || url.pathname === '/v1/messages/count_tokens';
+      responses = url.pathname === '/v1/responses';
       if (request.method === 'GET' && url.pathname === '/health') {
         return json(response, 200, { status: 'ok', backend: config.backend, text_only: false,
           tool_transport: toolTransport, anthropic_tools: toolTransport === 'native' ? 'native_mcp_client_handoff' : 'experimental_prompt_translation',
@@ -102,32 +106,35 @@ export function createHandler(config, adapter, forward = forwardAnthropic) {
       if (active) throw new BridgeError(429, 'bridge_busy', 'One request is already running. Retry after it finishes.');
       active = true;
       ownsSlot = true;
-      const input = kind === 'anthropic' ? normalizeAnthropic(body, models) : normalize(body, kind, models);
+      const input = kind === 'anthropic' ? normalizeAnthropic(body, models)
+        : kind === 'responses' ? normalizeResponses(body, config.models) : normalize(body, kind, models);
       const id = `${kind === 'chat' ? 'chatcmpl' : kind === 'anthropic' ? 'msg' : 'resp'}_${randomUUID().replaceAll('-', '')}`;
       const created = Math.floor(Date.now() / 1000);
-      if (kind === 'anthropic') {
-        response.setHeader('x-bridge-compatibility', toolTransport === 'native' ? 'native-mcp-client-handoff' : 'experimental-prompt-tools');
+      if (kind === 'anthropic' || kind === 'responses') {
+        response.setHeader('x-bridge-compatibility', (kind === 'responses' ? 'responses-' : '') +
+          (toolTransport === 'native' ? 'native-mcp-client-handoff' : 'experimental-prompt-tools'));
         response.setHeader('x-bridge-advisory-fields', input.advisoryFields.join(','));
         response.setHeader('x-bridge-stream-mode', 'live-thinking-buffered-answer');
       }
-      const live = kind === 'anthropic' && input.stream ? new AnthropicThinkingStream(response, id, input.publicModel, controller.signal) : null;
-      const result = kind === 'anthropic'
+      live = input.stream ? kind === 'anthropic' ? new AnthropicThinkingStream(response, id, input.publicModel, controller.signal)
+        : kind === 'responses' ? new ResponsesThinkingStream(response, id, input.publicModel, created, input, controller.signal) : null : null;
+      const result = kind === 'anthropic' || kind === 'responses'
         ? await adapter.completeAnthropic({ ...input, signal: controller.signal, onThinking: live ? event => live.accept(event) : undefined })
         : await adapter.complete({ ...input, signal: controller.signal });
       if (controller.signal.aborted) return;
       if (config.backend === 'workbuddy') upstreamVerified = true;
-      if (kind === 'anthropic') {
+      if (kind === 'anthropic' || kind === 'responses') {
         if (!result.usage && !response.headersSent) response.setHeader('x-bridge-usage', 'unknown-reported-as-zero');
       }
       if (!input.stream && kind === 'anthropic') return json(response, 200, anthropicMessage(id, input.publicModel, result));
-      if (!input.stream) return json(response, 200, kind === 'chat' ? chatCompletion(id, input.publicModel, result, created) : responseObject(id, input.publicModel, result, created));
+      if (!input.stream) return json(response, 200, kind === 'chat' ? chatCompletion(id, input.publicModel, result, created) : responseObject(id, input.publicModel, result, created, input));
       // Public thinking can arrive before completion. Answer/tool JSON is only
       // emitted after the CLI has succeeded and tool arguments are validated.
       if (!response.headersSent) startSse(response);
       if (response.writableNeedDrain) await once(response, 'drain', { signal: controller.signal });
       const events = kind === 'chat' ? chatEvents(id, input.publicModel, result, created, input.includeUsage)
         : kind === 'anthropic' ? live.started ? live.finish(result) : anthropicEvents(id, input.publicModel, result)
-          : responseEvents(id, input.publicModel, result, created);
+          : live.started ? live.finish(result) : responseEvents(id, input.publicModel, result, created, input);
       for (const event of events) {
         if (!writeSse(response, event)) {
           await once(response, 'drain', { signal: controller.signal });
@@ -144,7 +151,8 @@ export function createHandler(config, adapter, forward = forwardAnthropic) {
       else {
         // A partial thought is not a successful completion. Tell streaming SDKs
         // about the failure instead of silently closing an unfinished message.
-        writeSse(response, { event: 'error', data: anthropic
+        if (responses && live?.started) writeSse(response, live.failure(safe));
+        else writeSse(response, { event: 'error', data: anthropic
           ? { type: 'error', error: { type: 'api_error', message: safe.message } }
           : { error: { type: safe.code, code: safe.code, message: safe.message } } });
         response.end();

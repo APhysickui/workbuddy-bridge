@@ -37,7 +37,8 @@ export function readConfig(env = process.env) {
     models,
     cliPath: env.CODEBUDDY_BIN ?? bundledCli,
     runtimeDir: resolve('.runtime'),
-    maxBodyBytes: integer(env.BRIDGE_MAX_BODY_BYTES, 64 * 1024, 1024, 4 * 1024 * 1024, 'BRIDGE_MAX_BODY_BYTES'),
+    maxBodyBytes: integer(env.BRIDGE_MAX_BODY_BYTES, 1024 * 1024, 1024, 4 * 1024 * 1024, 'BRIDGE_MAX_BODY_BYTES'),
+    codexModel: env.BRIDGE_CODEX_MODEL,
     claudeModel: env.BRIDGE_CLAUDE_MODEL,
     claudeModelName: env.BRIDGE_CLAUDE_MODEL_NAME,
     claudePassthrough: env.BRIDGE_CLAUDE_PASSTHROUGH === '1'

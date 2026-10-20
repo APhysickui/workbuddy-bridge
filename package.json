@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "private": true,
   "type": "module",
-  "description": "Use WorkBuddy models in pi, Claude Code, Kimi Code and local API clients through the official CodeBuddy CLI",
+  "description": "Use WorkBuddy models in pi, Codex CLI, Claude Code, Kimi Code and local API clients through the official CodeBuddy CLI",
   "license": "MIT",
   "engines": { "node": ">=22.9.0" },
   "scripts": {
@@ -18,6 +18,8 @@
     "probe": "node --env-file-if-exists=.env scripts/probe.mjs",
     "agent:check": "node --env-file-if-exists=.env scripts/agent-check.mjs",
     "demo": "node --env-file-if-exists=.env scripts/demo.mjs",
+    "codex": "node --env-file-if-exists=.env scripts/codex.mjs",
+    "codex:check": "node --env-file-if-exists=.env scripts/codex.mjs --check",
     "claude": "node --env-file-if-exists=.env scripts/claude.mjs",
     "claude:check": "node --env-file-if-exists=.env scripts/claude.mjs --check",
     "claude:install": "node --env-file-if-exists=.env scripts/install-direct-claude.mjs",

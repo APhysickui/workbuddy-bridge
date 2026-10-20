@@ -2,13 +2,14 @@
 
 | 入口 | 支持 | 当前限制 |
 | --- | --- | --- |
+| Codex CLI | Responses 文字、公开 reasoning、function/custom 客户端工具与 namespace | 校验版本 0.163.0；需后台 HTTP 桥接，真实账号验收待运行 `codex:check` |
 | pi `workbuddy-cli` | 文字、公开 thinking、模型列表、实验性客户端工具 | 依赖 pi 扩展 API；不需要本地服务 |
 | Claude Code | 模型发现、文字、实验性客户端工具、原服务商透传 | 需支持 gateway model discovery 的版本；设置默认仅作用于本项目 |
 | Kimi Code | 独立 profile、普通 Kimi 配置迁移、19 个模型、启动服务、实验性客户端工具入口 | 已验证 2.1.1 配置解析；真实会话与工具往返需验收 |
 | `POST /v1/messages` | 文字、公开 thinking 与实验性客户端工具，JSON / SSE | thinking 增量即时发送；最终文字和工具通过校验后发送 |
 | `POST /v1/messages/count_tokens` | WorkBuddy token 估算；原服务商透传 | 估算不等于官方账单用量 |
 | `POST /v1/chat/completions` | OpenAI 文字子集，JSON / SSE | 不支持工具、图片及完整 OpenAI 参数集 |
-| `POST /v1/responses` | OpenAI 文字子集，JSON / SSE | 不支持工具或完整 Responses 能力 |
+| `POST /v1/responses` | 文字、公开 reasoning、function/custom/namespace 客户端工具，JSON / SSE | 无存储/前序 ID、图片、服务端工具或 WebSocket；见 [Codex 说明](codex.md) |
 | `GET /v1/models` | 配置启用的模型目录 | 带 Anthropic version 头时返回 Claude 桥接别名 |
 
 WorkBuddy 路线使用官方 CLI 的正常登录。每次请求启动隔离的 CLI 子进程。默认 `BRIDGE_TOOL_TRANSPORT=native` 将客户端工具作为私有 stdio MCP 函数提供给上游，保留参数结构，接收 CLI 输出的完整原生函数快照，再交给客户端执行工具及权限检查。复杂工具、多轮长任务和全部 Claude 功能尚未完成真实账号验收。对话历史仍作为 JSON 提示提交，这不是完整的原生会话透传。
@@ -21,7 +22,7 @@ WorkBuddy 路线使用官方 CLI 的正常登录。每次请求启动隔离的 C
 
 桥接保留官方 CLI 的公开 thinking 内容和实际签名，接受客户端回传的 assistant thinking 历史；不制造签名，也不读取调试元数据、`reasoning_detail` 或 opaque redacted payload。带 `--include-partial-messages` 的根会话 thinking 增量会立即显示；完整快照到达时按生成轮次和块顺序与增量合并。空块不占用 SSE 编号，不同轮次相同文字仍保留为独立块。当前块的快照可补全缺失的公开后缀或签名；若快照与已发送内容冲突，或需要修改已关闭的块，则明确报错，不静默替换历史。没有公开 thinking 的请求只返回答案。pi 会话和 HTML 导出可保留这些内容用于复查。Claude / Kimi 启动预检接受公开 thinking 与准确的最终验证文字同时出现，工具调用或只有 thinking 仍不算预检成功。
 
-协议 7 修复 thinking 合并和诊断信息。更新源码后运行 `npm run bridge:restart`，再重开 Kimi / Claude 会话；pi 运行 `/reload`。`GET /health` 的 `tool_transport` 应为实际选择的 `native` 或 `prompt`，`anthropic_tools` 分别为 `native_mcp_client_handoff` 或 `experimental_prompt_translation`；Messages 响应的 `x-bridge-compatibility` 分别为 `native-mcp-client-handoff` 或 `experimental-prompt-tools`。服务运行状态不等于真实模型与客户端验收通过。
+协议 8 新增 Codex Responses 客户端工具入口；此前协议 7 修复 thinking 合并和诊断信息。更新源码后运行 `npm run bridge:restart`，再重开 Kimi / Claude 会话；pi 运行 `/reload`。`GET /health` 的 `tool_transport` 应为实际选择的 `native` 或 `prompt`，`anthropic_tools` 分别为 `native_mcp_client_handoff` 或 `experimental_prompt_translation`；Messages 响应的 `x-bridge-compatibility` 分别为 `native-mcp-client-handoff` 或 `experimental-prompt-tools`。服务运行状态不等于真实模型与客户端验收通过。
 
 不接收图片、音频或服务端工具。`max_tokens`、采样、thinking token budget、cache_control 等部分参数不能控制官方 CLI 的原生行为；最大输出仅为声明或提示。支持的 `output_config.effort` 及 pi reasoning 等级传给 CLI 的 `--effort`，其他情况默认 `BRIDGE_REASONING_EFFORT=low`。声明客户端 thinking 能力表示可以显示公开内容，不保证每个目录模型都输出思考，也不保证能强制关闭。同一时刻仅允许一个 WorkBuddy 请求，失败直接报错，不自动切换其他服务商或备用模型。原 Claude 请求不占用此槽位，正文、相关标头和 SSE 直接透传。
 

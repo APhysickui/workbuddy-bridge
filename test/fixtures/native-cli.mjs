@@ -59,7 +59,8 @@ try {
   if (mode === 'hang') { await new Promise(resolve => setTimeout(resolve, 60000)); }
   const results = history.flatMap(message => Array.isArray(message.content) ? message.content.filter(block => block.type === 'tool_result') : []);
   const usage = { input_tokens: 2, output_tokens: 8, cache_read_input_tokens: 5, cache_creation_input_tokens: 10 };
-  const tool = tools.find(tool => /^read$/i.test(tool.name)) ?? tools[0];
+  const tool = mode === 'codex-agent' ? tools.find(tool => tool.inputSchema.properties?.cmd)
+    : tools.find(tool => /^read$/i.test(tool.name)) ?? tools[0];
   let call;
   const announcement = mode === 'repeated-announcement' || mode === 'announcement' && !text.includes('Transport correction:');
   if (tool && results.length < 2 && mode !== 'thinking-only' && !announcement) {
@@ -68,6 +69,14 @@ try {
     call = { type: 'tool_use', id: 'native_call_1', name: `mcp__bridge__${tool.name}`, input: { path } };
   }
   if (call) {
+    if (mode === 'codex-agent') {
+      const allText = history.flatMap(message => message.content.filter(block => block.type === 'text').map(block => block.text)).join('\n');
+      const path = results.length ? results[0].content.match(/\/[a-zA-Z0-9_./-]+\/draft\.txt/)?.[0]
+        : allText.match(/Read (.+)\. It names/)?.[1];
+      assert.ok(path, 'fixture needs the actual first file path or first client read result');
+      call.input = { cmd: `cat -- '${path.replaceAll("'", "'\\''")}'`, max_output_tokens: 1024 };
+    }
+    if (mode === 'custom') call.input = { input: '*** Begin Patch\n*** Add File: proof.txt\n+verified\n*** End Patch' };
     if (mode === 'unknown-tool') call.name = 'Bash';
     if (mode === 'invalid-args') call.input = { path: 12 };
     emit({ type: 'assistant', parent_tool_use_id: null, message: { id: 'generation-1', content: [call], usage } });
@@ -92,7 +101,9 @@ try {
   } else {
     emit({ type: 'result', subtype: 'success', is_error: false,
       result: announcement ? '看到了。我精确数一下不含空白字符的字数，确认超出多少。'
-        : mode === 'json-text' ? '{"text":"a real JSON answer","tool_calls":[]}' : results.at(-1)?.content ?? 'NATIVE_TEXT_OK', usage });
+        : mode === 'json-text' ? '{"text":"a real JSON answer","tool_calls":[]}'
+          : mode === 'codex-agent' ? results.at(-1)?.content.match(/CODEX_TEST_[a-f0-9]+/)?.[0] ?? 'CODEX_TEXT_OK'
+            : results.at(-1)?.content ?? 'NATIVE_TEXT_OK', usage });
   }
 } finally {
   server?.stdin.end();

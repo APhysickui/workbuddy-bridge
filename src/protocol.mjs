@@ -58,15 +58,7 @@ export function chatCompletion(id, model, result, created) {
   };
 }
 
-export function responseObject(id, model, result, created) {
-  return {
-    id, object: 'response', created_at: created, status: 'completed', error: null, incomplete_details: null,
-    model, store: false, previous_response_id: null,
-    output: [{ id: `msg_${id.slice(5)}`, type: 'message', status: 'completed', role: 'assistant',
-      content: [{ type: 'output_text', text: result.text, annotations: [] }] }],
-    usage: result.usage ? { input_tokens: result.usage.prompt_tokens, output_tokens: result.usage.completion_tokens, total_tokens: result.usage.total_tokens } : null
-  };
-}
+export { responseObject, responseEvents } from './responses.mjs';
 
 function* pieces(text) {
   const chars = Array.from(text);
@@ -82,21 +74,4 @@ export function* chatEvents(id, model, result, created, includeUsage) {
   yield { data: chunk({}, 'stop') };
   if (includeUsage) yield { data: { ...chunk({}, null, false), usage: result.usage } };
   yield { data: '[DONE]' };
-}
-
-export function* responseEvents(id, model, result, created) {
-  const full = responseObject(id, model, result, created);
-  const message = full.output[0];
-  let sequence = 0;
-  const event = (type, fields) => ({ event: type, data: { type, sequence_number: sequence++, ...fields } });
-  yield event('response.created', { response: { ...full, status: 'in_progress', output: [], usage: null } });
-  yield event('response.in_progress', { response: { ...full, status: 'in_progress', output: [], usage: null } });
-  yield event('response.output_item.added', { output_index: 0, item: { ...message, status: 'in_progress', content: [] } });
-  const position = { item_id: message.id, output_index: 0, content_index: 0 };
-  yield event('response.content_part.added', { ...position, part: { type: 'output_text', text: '', annotations: [] } });
-  for (const delta of pieces(result.text)) yield event('response.output_text.delta', { ...position, delta });
-  yield event('response.output_text.done', { ...position, text: result.text });
-  yield event('response.content_part.done', { ...position, part: message.content[0] });
-  yield event('response.output_item.done', { output_index: 0, item: message });
-  yield event('response.completed', { response: full });
 }

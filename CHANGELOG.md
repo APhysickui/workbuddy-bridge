@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- 新增 Codex CLI 启动器、WorkBuddy 模型目录及真实短回复/文件读取验收命令，采用进程级 provider 配置，不改全局登录和原有设置。
+- Responses 从纯文字入口扩展为客户端 function/custom 工具、namespace、公开 reasoning 流和工具结果续接；复用原生 MCP 校验和取消，补充失败事件及串行工具限制。自定义工具文法为提示，最终由 Codex 解析。
+- 协议升级至 8；加入固定版本 Codex 的离线客户端 CI 测试。无显式设置时请求体默认上限调整至 1 MiB，init 仍为 2 MiB。真实模型验收仍需普通终端执行 `npm run codex:check`。
+
 - 新增实验性 Buddy 加油站签到脚本：复用 App 本地认证代理，先查后领并复查结果，防止不确定结果重复提交；提供 macOS 每日任务安装/移除。真实领取仍需普通终端验证。
 
 - 修复真实集成检查中 Claude 的 `--tools` 吞掉提示词、尚未请求模型就退出的问题；在提示词前加 `--`，并显示安全的缺失输入诊断。

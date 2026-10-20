@@ -11,8 +11,9 @@
 | `BRIDGE_TIMEOUT_MS` | 单个桥接请求的 WorkBuddy 调用总超时（含最多一次协议纠正），init 为 120000，范围 1000–300000 |
 | `BRIDGE_REASONING_EFFORT` | CLI 默认推理 effort，默认 `low`；可选 `minimal` / `low` / `medium` / `high` / `xhigh` / `max`，具体效果和积分以模型为准 |
 | `BRIDGE_TOOL_TRANSPORT` | 默认 `native`，通过私有 MCP 提供原生客户端工具请求；`prompt` 为旧提示词 JSON 转换，仅供兼容调试 |
-| `BRIDGE_MAX_BODY_BYTES` | 请求大小上限，init 为 2097152，最高 4 MiB |
+| `BRIDGE_MAX_BODY_BYTES` | 请求大小上限，未设置时 1 MiB，init 为 2097152，最高 4 MiB |
 | `BRIDGE_MODELS` | 逗号分隔的 `公开ID=官方ID`；默认加载完整目录 |
+| `BRIDGE_CODEX_MODEL` | Codex 启动模型；未设置时沿用 BRIDGE_CLAUDE_MODEL 或目录默认值；也可用 --model 临时选择 |
 | `BRIDGE_CLAUDE_MODEL` | 便捷启动器及 Claude 自定义项的模型 ID，默认 V4.1 Flash |
 | `BRIDGE_CLAUDE_MODEL_NAME` | Claude 自定义项名称，例如 `DeepSeek V4.1 Flash（workbuddy）` |
 | `BRIDGE_CLAUDE_PASSTHROUGH` | 设为 `1`，启用原 Claude 服务商透传；普通 Claude 接入需要此项 |
