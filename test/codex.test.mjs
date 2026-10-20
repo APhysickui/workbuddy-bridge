@@ -92,7 +92,21 @@ test('installed Codex completes two real client shell reads through Responses wi
   t.after(() => rm(directory, { recursive: true, force: true }));
   const current = { ...config, backend: 'workbuddy', runtimeDir: directory, models: new Map([['test', 'test']]), timeoutMs: 10000 };
   const adapter = new WorkBuddyAdapter(current, { prefixArgs: [fileURLToPath(new URL('./fixtures/native-cli.mjs', import.meta.url)), 'codex-agent'] });
-  const server = createServer(createHandler(current, adapter));
+  const handler = createHandler(current, adapter);
+  const server = createServer((request, response) => {
+    let body = '';
+    request.on('data', chunk => { body += chunk; });
+    response.on('finish', () => {
+      if (response.statusCode < 400) return;
+      let parsed;
+      try { parsed = JSON.parse(body); } catch {}
+      // Fixture-only diagnostic: field names and item types, never prompts,
+      // tool arguments, authentication or real account traffic.
+      t.diagnostic(JSON.stringify({ http_status: response.statusCode, fields: Object.keys(parsed ?? {}),
+        tool_types: parsed?.tools?.map(tool => tool.type), input_types: parsed?.input?.map(item => item.type ?? item.role), include: parsed?.include }));
+    });
+    return handler(request, response);
+  });
   try {
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   } catch (error) {
@@ -109,7 +123,14 @@ test('installed Codex completes two real client shell reads through Responses wi
   const stdout = await runClient(cli, codexArguments(current, catalog, 'test', ['exec', '--ephemeral', '--skip-git-repo-check',
     '--sandbox', 'read-only', '--json', `Read ${index}. It names a second file. Read that file too, then reply only with the marker from it.`]),
   { cwd: directory, env: { ...codexEnvironment(current), CODEX_HOME: directory }, capture: true, allowFailure: true, timeout: 35000 });
-  assert.equal(verifyCodexCheck(stdout, marker, true).codex_tools_verified, true);
+  try { assert.equal(verifyCodexCheck(stdout, marker, true).codex_tools_verified, true); }
+  catch (error) {
+    const messages = stdout.split(/\r?\n/).flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } })
+      .filter(event => event.type === 'error' || event.type === 'turn.failed')
+      .map(event => event.message ?? event.error?.message ?? 'Codex turn failed');
+    t.diagnostic(JSON.stringify({ fixture_client_errors: messages }));
+    throw error;
+  }
   const events = stdout.split(/\r?\n/).flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } });
   assert.equal(events.filter(event => event.type === 'item.completed' && event.item?.type === 'command_execution' && event.item.exit_code === 0).length, 2);
 });

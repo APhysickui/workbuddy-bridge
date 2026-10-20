@@ -22,8 +22,9 @@ const frames = text => text.split('\n\n').filter(Boolean).map(frame => JSON.pars
 
 test('Responses developer instructions, Codex advisory fields and public reasoning normalize to the shared tool adapter', () => {
   const input = normalize({ ...body, instructions: 'Follow permissions.', max_output_tokens: 1024, stream: true,
-    reasoning: { effort: 'high', summary: 'auto' }, text: { verbosity: 'low' }, include: ['reasoning.encrypted_content'],
-    prompt_cache_key: 'session-cache', input: [{ role: 'developer', content: 'Client instructions.' }, ...body.input] });
+    reasoning: { effort: 'high', summary: 'auto' }, text: { verbosity: 'low' }, include: ['reasoning.encrypted_content', 'output.encrypted_content'],
+    prompt_cache_key: 'session-cache', stream_options: { include_obfuscation: false }, client_metadata: { run_id: 'fixture' }, access_programs: null,
+    input: [{ role: 'developer', content: 'Client instructions.' }, ...body.input] });
   assert.equal(input.effort, 'high'); assert.equal(input.maxTokens, 1024);
   assert.equal(input.system, 'Follow permissions.\n\nClient instructions.');
   assert.equal(input.responseTools.get(input.tools[0].name).name, 'read');

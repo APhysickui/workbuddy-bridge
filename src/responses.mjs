@@ -25,7 +25,8 @@ export function normalizeResponses(body, models) {
   if (!object(body)) throw invalid('Request body must be an object.');
   const allowed = ['model', 'input', 'instructions', 'tools', 'tool_choice', 'parallel_tool_calls', 'stream', 'store',
     'max_output_tokens', 'reasoning', 'text', 'temperature', 'top_p', 'include', 'metadata', 'prompt_cache_key',
-    'prompt_cache_retention', 'previous_response_id', 'truncation', 'service_tier', 'background', 'safety_identifier'];
+    'prompt_cache_retention', 'previous_response_id', 'truncation', 'service_tier', 'background', 'safety_identifier',
+    'stream_options', 'client_metadata', 'access_programs'];
   if (Object.keys(body).some(key => !allowed.includes(key))) throw invalid('Unsupported Responses request fields.');
   if (body.store !== undefined && body.store !== false || body.previous_response_id != null || body.background === true) {
     throw invalid('Use store=false and resend the full conversation; stored/background responses are unavailable.');
@@ -36,8 +37,16 @@ export function normalizeResponses(body, models) {
     throw invalid('Only text output format is supported; structured response formats are unavailable.');
   }
   if (body.reasoning !== undefined && !object(body.reasoning)) throw invalid('reasoning must be an object.');
-  if (body.include !== undefined && (!Array.isArray(body.include) || body.include.some(value => value !== 'reasoning.encrypted_content'))) {
-    throw invalid('Only include=reasoning.encrypted_content is accepted as an advisory request; opaque reasoning is not generated.');
+  if (body.stream_options != null && (!object(body.stream_options) || Object.keys(body.stream_options).some(key => key !== 'include_obfuscation') ||
+      body.stream_options.include_obfuscation !== undefined && typeof body.stream_options.include_obfuscation !== 'boolean')) {
+    throw invalid('Only boolean stream_options.include_obfuscation is accepted as advisory metadata.');
+  }
+  if (body.client_metadata != null && !object(body.client_metadata)) throw invalid('client_metadata must be an object.');
+  if (body.access_programs != null && (!Array.isArray(body.access_programs) || body.access_programs.length)) {
+    throw invalid('OpenAI access programs are unavailable through this provider.');
+  }
+  if (body.include !== undefined && (!Array.isArray(body.include) || body.include.some(value => !['reasoning.encrypted_content', 'output.encrypted_content'].includes(value)))) {
+    throw invalid('Only reasoning/output encrypted_content include fields are accepted as advisory requests; opaque content is not generated.');
   }
   const responseTools = new Map();
   const tools = [];
@@ -125,7 +134,7 @@ export function normalizeResponses(body, models) {
     tool_choice: toolChoice, max_tokens: body.max_output_tokens ?? 4096, stream: body.stream,
     ...(effort && effort !== 'none' ? { output_config: { effort } } : {}) }, models);
   return { ...normalized, responseTools,
-    advisoryFields: ['max_output_tokens', 'temperature', 'top_p', 'reasoning', 'text', 'include', 'prompt_cache_key', 'prompt_cache_retention', 'service_tier'].filter(key => key in body)
+    advisoryFields: ['max_output_tokens', 'temperature', 'top_p', 'reasoning', 'text', 'include', 'prompt_cache_key', 'prompt_cache_retention', 'service_tier', 'stream_options', 'client_metadata'].filter(key => key in body)
       .concat([...responseTools.values()].some(tool => tool.type === 'custom') ? ['custom_tool_grammar'] : []) };
 }
 
