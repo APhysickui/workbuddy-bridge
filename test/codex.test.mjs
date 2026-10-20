@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
@@ -129,6 +129,11 @@ test('installed Codex completes two real client shell reads through Responses wi
       .filter(event => event.type === 'error' || event.type === 'turn.failed')
       .map(event => event.message ?? event.error?.message ?? 'Codex turn failed');
     t.diagnostic(JSON.stringify({ fixture_client_errors: messages }));
+    const commands = stdout.split(/\r?\n/).flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } })
+      .filter(event => event.item?.type === 'command_execution').map(event => ({ status: event.item.status,
+        exit_code: event.item.exit_code, output: event.item.aggregated_output?.slice(0, 500) }));
+    t.diagnostic(JSON.stringify({ fixture_command_results: commands }));
+    try { t.diagnostic(await readFile(join(directory, 'codex-fixture-trace.json'), 'utf8')); } catch {}
     throw error;
   }
   const events = stdout.split(/\r?\n/).flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } });
