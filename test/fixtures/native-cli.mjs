@@ -58,7 +58,7 @@ try {
     tools = (await request('tools/list')).result.tools;
   }
   const names = tools.map(tool => `mcp__bridge__${tool.name}`);
-  trace({ tools: tools.map(tool => ({ name: tool.name, properties: Object.keys(tool.inputSchema.properties ?? {}) })) });
+  trace({ tools: tools.map(tool => ({ name: tool.name, client_name: tool.description.split('. ')[0], properties: Object.keys(tool.inputSchema.properties ?? {}) })) });
   emit({ type: 'system', subtype: 'init', model: flag('--model'), tools: mode === 'missing-tools' ? [] : names });
   if (mode === 'missing-tools') { await new Promise(resolve => setTimeout(resolve, 500)); process.exit(0); }
   const event = event => emit({ type: 'stream_event', parent_tool_use_id: null, event });
@@ -67,7 +67,7 @@ try {
   event({ type: 'content_block_stop', index: 0 });
   if (mode === 'hang') { await new Promise(resolve => setTimeout(resolve, 60000)); }
   const results = history.flatMap(message => Array.isArray(message.content) ? message.content.filter(block => block.type === 'tool_result') : []);
-  trace({ result_count: results.length });
+  trace({ result_count: results.length, result_preview: results[0]?.content?.slice(0, 1000) });
   const usage = { input_tokens: 2, output_tokens: 8, cache_read_input_tokens: 5, cache_creation_input_tokens: 10 };
   const tool = mode === 'codex-agent' ? tools.find(tool => tool.inputSchema.properties?.cmd)
     : tools.find(tool => /^read$/i.test(tool.name)) ?? tools[0];
