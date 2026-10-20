@@ -36,7 +36,7 @@ npm run codex:check
 
 该命令使用临时 Codex home，先要求准确短回复，再要求 Codex 实际读取新建的随机文件并返回内容；只有完整 turn、准确答案和成功的命令输出均吻合才打印 `codex_text_verified` / `codex_tools_verified`。它使用真实模型，可能消耗积分。退出码为 0 或只看到思考都不算验证成功。
 
-本地测试覆盖 Responses 正文、SSE、函数与 custom 工具、namespace、两次真实客户端文件读取、原生 MCP 交接、取消和上游失败。上述读取测试使用合成上游，不证明真实模型稳定。CI 安装固定版本 Codex，以合成上游验证真正的 Codex CLI 连续读取两个临时文件；不需要 OpenAI / WorkBuddy 账号。
+本地测试覆盖 Responses 正文、SSE、函数与 custom 工具、namespace、两次真实客户端文件读取、原生 MCP 交接、取消和上游失败。上述读取测试使用合成上游，不证明真实模型稳定。CI 安装固定版本 Codex，以合成上游验证真正的 Codex CLI 通过受限 MCP reader 连续读取两个临时文件，保留客户端沙箱设置，避免依赖 CI runner 的 Linux 用户命名空间权限；不需要 OpenAI / WorkBuddy 账号。
 
 当前开发沙箱禁止本地端口连接与监听（EPERM），所以本机完整 Codex socket 流程和真实模型验收仍需普通终端执行。模型目录已被本机已安装 Codex 成功加载。官方文档站在本次核对时返回 403；请求/响应兼容校验使用本机 Codex 生成的协议 schema 和 CLI 行为，不声明完整 OpenAI API 或所有 Codex 版本兼容。
 

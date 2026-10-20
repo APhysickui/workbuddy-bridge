@@ -86,12 +86,12 @@ test('installed Codex loads the generated provider catalog without global config
   assert.ok(models.every(model => model.display_name.endsWith('（workbuddy）')));
 });
 
-test('installed Codex completes two real client shell reads through Responses with synthetic upstream', { timeout: 45000 }, async t => {
+test('installed Codex completes two real client MCP reads through Responses with synthetic upstream', { timeout: 45000 }, async t => {
   const cli = await installedCodex(t); if (!cli) return;
   const directory = await mkdtemp(join(tmpdir(), 'wb-codex-agent-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const current = { ...config, backend: 'workbuddy', runtimeDir: directory, models: new Map([['test', 'test']]), timeoutMs: 10000 };
-  const adapter = new WorkBuddyAdapter(current, { prefixArgs: [fileURLToPath(new URL('./fixtures/native-cli.mjs', import.meta.url)), 'codex-agent'] });
+  const adapter = new WorkBuddyAdapter(current, { prefixArgs: [fileURLToPath(new URL('./fixtures/native-cli.mjs', import.meta.url)), 'codex-mcp'] });
   const handler = createHandler(current, adapter);
   const server = createServer((request, response) => {
     let body = '';
@@ -120,10 +120,14 @@ test('installed Codex completes two real client shell reads through Responses wi
   const index = join(directory, 'index.txt'), draft = join(directory, 'draft.txt');
   const marker = 'CODEX_TEST_' + randomBytes(16).toString('hex');
   await writeFile(index, draft); await writeFile(draft, marker);
-  const stdout = await runClient(cli, codexArguments(current, catalog, 'test', ['exec', '--ephemeral', '--skip-git-repo-check',
+  const reader = fileURLToPath(new URL('./fixtures/codex-read-mcp.mjs', import.meta.url));
+  const stdout = await runClient(cli, codexArguments(current, catalog, 'test', [
+    '-c', `mcp_servers.fixture.command=${JSON.stringify(process.execPath)}`,
+    '-c', `mcp_servers.fixture.args=${JSON.stringify([reader, index, draft])}`,
+    'exec', '--ephemeral', '--skip-git-repo-check',
     '--sandbox', 'read-only', '--json', `Read ${index}. It names a second file. Read that file too, then reply only with the marker from it.`]),
   { cwd: directory, env: { ...codexEnvironment(current), CODEX_HOME: directory }, capture: true, allowFailure: true, timeout: 35000 });
-  try { assert.equal(verifyCodexCheck(stdout, marker, true).codex_tools_verified, true); }
+  try { assert.equal(verifyCodexCheck(stdout, marker).codex_text_verified, true); }
   catch (error) {
     const messages = stdout.split(/\r?\n/).flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } })
       .filter(event => event.type === 'error' || event.type === 'turn.failed')
@@ -137,5 +141,7 @@ test('installed Codex completes two real client shell reads through Responses wi
     throw error;
   }
   const events = stdout.split(/\r?\n/).flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } });
-  assert.equal(events.filter(event => event.type === 'item.completed' && event.item?.type === 'command_execution' && event.item.exit_code === 0).length, 2);
+  assert.equal(events.filter(event => event.type === 'item.completed' && event.item?.type === 'mcp_tool_call' && event.item.status === 'completed').length, 2);
+  const reads = (await readFile(join(directory, 'client-reads.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line).path);
+  assert.deepEqual(reads, [index, draft]);
 });

@@ -8,11 +8,11 @@ const hasMode = !process.argv[2].startsWith('--');
 const mode = hasMode ? process.argv[2] : process.env.WB_NATIVE_MODE ?? 'agent';
 const fixtureTrace = {};
 function trace(value) {
-  if (mode !== 'codex-agent') return;
+  if (!['codex-agent', 'codex-mcp'].includes(mode)) return;
   Object.assign(fixtureTrace, value);
   writeFileSync('codex-fixture-trace.json', JSON.stringify(fixtureTrace));
 }
-if (mode === 'codex-agent') process.on('uncaughtExceptionMonitor', error => trace({ failure: error.message.slice(0, 500) }));
+if (['codex-agent', 'codex-mcp'].includes(mode)) process.on('uncaughtExceptionMonitor', error => trace({ failure: error.message.slice(0, 500) }));
 const args = process.argv.slice(hasMode ? 3 : 2);
 const flag = name => args[args.indexOf(name) + 1];
 assert.equal(flag('--tools'), '');
@@ -70,6 +70,7 @@ try {
   trace({ result_count: results.length, result_preview: results[0]?.content?.slice(0, 1000) });
   const usage = { input_tokens: 2, output_tokens: 8, cache_read_input_tokens: 5, cache_creation_input_tokens: 10 };
   const tool = mode === 'codex-agent' ? tools.find(tool => tool.inputSchema.properties?.cmd)
+    : mode === 'codex-mcp' ? tools.find(tool => tool.description.includes('WORKBUDDY_CODEX_TEST_READ'))
     : tools.find(tool => /^read$/i.test(tool.name)) ?? tools[0];
   let call;
   const announcement = mode === 'repeated-announcement' || mode === 'announcement' && !text.includes('Transport correction:');
@@ -79,12 +80,12 @@ try {
     call = { type: 'tool_use', id: 'native_call_1', name: `mcp__bridge__${tool.name}`, input: { path } };
   }
   if (call) {
-    if (mode === 'codex-agent') {
+    if (['codex-agent', 'codex-mcp'].includes(mode)) {
       const allText = history.flatMap(message => message.content.filter(block => block.type === 'text').map(block => block.text)).join('\n');
       const path = results.length ? results[0].content.match(/\/[a-zA-Z0-9_./-]+\/draft\.txt/)?.[0]
         : allText.match(/Read (.+)\. It names/)?.[1];
       assert.ok(path, 'fixture needs the actual first file path or first client read result');
-      call.input = { cmd: `cat -- '${path.replaceAll("'", "'\\''")}'`, max_output_tokens: 1024 };
+      call.input = mode === 'codex-mcp' ? { path } : { cmd: `cat -- '${path.replaceAll("'", "'\\''")}'`, max_output_tokens: 1024 };
     }
     if (mode === 'custom') call.input = { input: '*** Begin Patch\n*** Add File: proof.txt\n+verified\n*** End Patch' };
     if (mode === 'unknown-tool') call.name = 'Bash';
@@ -112,7 +113,7 @@ try {
     emit({ type: 'result', subtype: 'success', is_error: false,
       result: announcement ? '看到了。我精确数一下不含空白字符的字数，确认超出多少。'
         : mode === 'json-text' ? '{"text":"a real JSON answer","tool_calls":[]}'
-          : mode === 'codex-agent' ? results.at(-1)?.content.match(/CODEX_TEST_[a-f0-9]+/)?.[0] ?? 'CODEX_TEXT_OK'
+          : ['codex-agent', 'codex-mcp'].includes(mode) ? results.at(-1)?.content.match(/CODEX_TEST_[a-f0-9]+/)?.[0] ?? 'CODEX_TEXT_OK'
             : results.at(-1)?.content ?? 'NATIVE_TEXT_OK', usage });
   }
 } finally {
