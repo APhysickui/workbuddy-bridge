@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 修复 pi 仍选中旧 `workbuddy / deepseek-v4-flash`、反复连接失效 8799 端口的问题：扩展识别本项目旧本地入口，在当前进程改用官方 CLI，并提示迁移到 `workbuddy-cli / deepseek-v4.1-flash`。保留其他服务商和全局文件；新增本机 pi 1.4.0 的旧配置启动回归。
+
 - 新增 Codex CLI 启动器、WorkBuddy 模型目录及真实短回复/文件读取验收命令，采用进程级 provider 配置，不改全局登录和原有设置。
 - Responses 从纯文字入口扩展为客户端 function/custom 工具、namespace、公开 reasoning 流和工具结果续接；复用原生 MCP 校验和取消，补充失败事件及串行工具限制。自定义工具文法为提示，最终由 Codex 解析。
 - 协议升级至 8；加入固定版本 Codex 的离线客户端 CI 测试。无显式设置时请求体默认上限调整至 1 MiB，init 仍为 2 MiB。真实模型验收仍需普通终端执行 `npm run codex:check`。

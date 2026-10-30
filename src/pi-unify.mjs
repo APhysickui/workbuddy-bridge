@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { PI_PROVIDER_ID } from './pi-config.mjs';
 
 function object(value) { return value && typeof value === 'object' && !Array.isArray(value); }
-function ownedLegacyProvider(id, provider) {
+export function ownedLegacyProvider(id, provider) {
   if (!['workbuddy', PI_PROVIDER_ID].includes(id)) return false;
   try {
     const url = new URL(provider.baseUrl);

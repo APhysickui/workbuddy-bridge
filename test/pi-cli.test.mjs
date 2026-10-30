@@ -82,7 +82,20 @@ test('installed pi CLI lists the catalog, selects several models, runs its read 
     workbuddy: { api: 'openai-completions', apiKey: 'old-test-key', baseUrl: 'http://127.0.0.1:8799/v1',
       models: [{ id: 'deepseek-v4-flash', name: 'old WorkBuddy' }] }
   } }));
-  await writeFile(join(agentDir, 'settings.json'), JSON.stringify({ defaultProvider: 'workbuddy', defaultModel: 'deepseek-v4-flash' }));
+  await writeFile(join(agentDir, 'settings.json'), JSON.stringify({ defaultProvider: 'workbuddy', defaultModel: 'deepseek-v4-flash',
+    extensions: [join(project, '.pi/extensions/workbuddy.js')] }));
+  // Reproduce the user's unmodified old global provider. The extension must
+  // migrate it in memory; a working daemon and a cleanup command are not needed.
+  const legacyRaw = await readFile(join(agentDir, 'models.json'), 'utf8');
+  const legacy = await run(pi, ['--offline', '--approve', '--print', '--mode', 'json', '--no-session', '--no-tools',
+    '--no-mcp', '--no-skills', '--no-prompt-templates', '--no-context-files', 'Reply with PI_WORKBUDDY_OK only.'], options);
+  assert.equal(verifyPiCheck(legacy.stdout).pi_text_verified, true);
+  assert.ok(!legacy.stdout.includes('Connection error'));
+  const migrated = legacy.stdout.trim().split('\n').flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } })
+    .filter(event => event.type === 'message_end' && event.message?.role === 'assistant').at(-1).message;
+  assert.equal(migrated.provider, PI_PROVIDER_ID);
+  assert.equal(migrated.model, 'deepseek-v4.1-flash');
+  assert.equal(await readFile(join(agentDir, 'models.json'), 'utf8'), legacyRaw);
   await applyPiUnification(agentDir, join(project, '.pi/extensions/workbuddy.js'), {
     claudeModel: 'deepseek-v4.1-flash', models: new Map([['deepseek-v4.1-flash', 'deepseek-v4.1-flash']])
   });

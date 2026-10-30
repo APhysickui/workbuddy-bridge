@@ -6,6 +6,7 @@ import { readConfig } from '../../src/config.mjs';
 import { registerPiProvider } from '../../src/pi-config.mjs';
 import { WorkBuddyAdapter } from '../../src/adapters.mjs';
 import { directPiProvider } from '../../src/pi-direct.mjs';
+import { registerPiLegacyCompatibility } from '../../src/pi-legacy.mjs';
 import { anthropicMessagesApi, createAssistantMessageEventStream } from '@earendil-works/pi-ai/compat';
 
 export default function workbuddy(pi) {
@@ -13,5 +14,8 @@ export default function workbuddy(pi) {
   const config = readConfig({ ...process.env, ...parseEnv(readFileSync(join(project, '.env'), 'utf8')) });
   config.runtimeDir = join(project, '.runtime');
   config.backend = 'workbuddy';
-  registerPiProvider(pi, directPiProvider(config, new WorkBuddyAdapter(config), anthropicMessagesApi(), createAssistantMessageEventStream));
+  const api = anthropicMessagesApi();
+  const createProvider = current => directPiProvider(current, new WorkBuddyAdapter(current), api, createAssistantMessageEventStream);
+  registerPiProvider(pi, createProvider(config));
+  registerPiLegacyCompatibility(pi, config, createProvider);
 }

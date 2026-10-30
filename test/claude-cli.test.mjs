@@ -65,7 +65,8 @@ test('installed Claude includes the discovered WorkBuddy lineup with original pi
       assert.equal(row?.displayName, model.display_name, `Missing or mislabeled ${model.id}`);
     }
     assert.equal(menu.find(row => row.value === 'sonnet')?.resolvedModel, 'claude-sonnet-5');
-    assert.equal(menu.find(row => row.value === 'opus')?.resolvedModel, 'claude-opus-5-5[1M]');
+    // New Claude builds normalize the context suffix in the menu's resolved ID.
+    assert.equal(menu.find(row => row.value === 'opus')?.resolvedModel?.replace(/\[1M\]$/, ''), 'claude-opus-5-5');
   } finally {
     child.stdin.end();
     child.kill();

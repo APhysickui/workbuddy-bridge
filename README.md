@@ -115,6 +115,8 @@ kimi
 
 安装仅替换已知本地 WorkBuddy 提供商及其模型，保留其他提供商和用户 hook；原默认指向 WorkBuddy 时同时修正 thinking 和辅助模型。WorkBuddy 改用本项目端口上的 Anthropic 接口，模型预算取自目录。启动 hook 会在新会话开始时自动检查并启动桥接。本地桥接密钥写入用户的私有 Kimi 配置，不写进仓库。退出旧客户端后重开，避免继续使用旧会话的 64K 配置。
 
+旧 pi 会话若仍选择 `workbuddy / deepseek-v4-flash` 并连接 8799，加载本项目扩展后会在当前进程内改走官方 CLI，并明确迁移到 `workbuddy-cli / deepseek-v4.1-flash`。在 pi 中取消重试后运行 `/reload`；如果手动选模型，选择后缀（workbuddy）的 `[workbuddy-cli]` 项。仅拦截已确认属于本项目的旧本地地址，不重写全局 models.json，不改其他服务商。需要永久清理旧配置时，退出 pi 后在普通终端运行 `npm run pi:unify -- --apply`，原文件会备份。
+
 如果 pi 提示工具 JSON 格式错误，或 Kimi 仍连旧端口，可在普通终端执行 `npm run local:repair`。它备份并迁移普通 Kimi 配置、重启桥接，然后核对 pi / Kimi 的真实文字回复和读取临时随机文件的结果，会消耗积分；只有全部通过才打印 `LOCAL_REPAIR_OK`。`npm run local:repair -- --plan` 只查看方案。
 
 如果前三项已通过，只剩 Kimi 文件读取失败，可执行 `npm run local:repair -- --kimi-tools-only` 继续剩余检查。Kimi 2.1.1 不允许 `--prompt` 与 `--yolo` / `--auto` / `--plan` 组合，项目检查命令使用 prompt 模式自身的非交互权限。
