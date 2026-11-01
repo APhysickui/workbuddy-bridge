@@ -1,55 +1,57 @@
 # WorkBuddy Bridge
 
-通过已登录的官方 CodeBuddy CLI，在 **Codex CLI、pi、Claude Code、Kimi Code 和本地 API 客户端**中使用 WorkBuddy 模型。模型名称带 **（workbuddy）** 后缀，pi / Claude 默认 **DeepSeek V4.1 Flash**，Kimi 启动器默认 **Kimi K3**。目录包含 19 个入口，涵盖 DeepSeek、GLM、Kimi、MiniMax、混元及官方自动档位。
+[English](README.md) · [简体中文](README.zh-CN.md)
 
-A local, experimental bridge from the official CodeBuddy CLI to Codex CLI, pi, Claude Code, Kimi Code, and OpenAI/Anthropic-compatible clients. Uses the CLI’s normal login; no desktop token extraction.
+Use WorkBuddy models in **Codex CLI, Pi, Claude Code, Kimi Code, and local API clients** through the authenticated official CodeBuddy CLI. Model names carry a **（workbuddy）** suffix. Pi and Claude default to **DeepSeek V4.1 Flash**; the Kimi launcher defaults to **Kimi K3**. The catalog contains 19 entries covering DeepSeek, GLM, Kimi, MiniMax, Hunyuan, and official automatic tiers.
 
-**实验版本。** 已有协议、进程和隔离客户端测试；真实账号端到端调用需要在自己的环境验收。客户端工具默认通过 CodeBuddy 原生 MCP 函数交接，公开 thinking 增量实时转发，最终文字和工具在校验后发送。[兼容范围](docs/compatibility.md) · [模型及输入输出限制](docs/models.md) · [配置说明](docs/configuration.md)
+This local bridge uses the CLI's normal login, without extracting desktop tokens.
 
-## 准备
+**Experimental.** Protocol, process, and isolated-client tests are available; real-account end-to-end behavior must be verified in your environment. Client tools use CodeBuddy's native MCP function handoff by default. Publicly exposed thinking deltas stream live; final text and tool calls are sent after validation. See [compatibility](docs/compatibility.md), [models and limits](docs/models.md), and [configuration](docs/configuration.md).
 
-需要 Node.js **22.9+**、已安装并能正常回复的官方 CodeBuddy CLI，以及要使用的 Codex / pi / Claude / Kimi 客户端。项目无 npm 依赖；Claude 原服务商透传另需系统 `curl`。
+## Prerequisites
 
-无需一直开启 WorkBuddy 桌面应用，调用依赖官方 CodeBuddy CLI 的正常登录。pi 的 WorkBuddy 扩展直接启动 CLI；Codex / Kimi / Claude Code 的接入需要本地桥接服务在后台运行，启动 hook 会自动检查并拉起服务。
+Requires Node.js **22.9+**, an installed official CodeBuddy CLI that can answer normally, and the Codex / Pi / Claude / Kimi clients you want to use. The project has no npm dependencies; Claude passthrough to an existing provider additionally requires system `curl`.
+
+The WorkBuddy desktop app does not need to stay open for model calls. Pi's WorkBuddy extension launches the CLI directly. Codex, Kimi, and Claude integrations need the local bridge service in the background; startup hooks check and start it automatically.
 
 ```sh
 cd workbuddy-bridge
 npm run init
 ```
 
-初始化生成随机本地密钥和 mock 配置，已有 `.env` 会保留。安装并登录官方 CodeBuddy 后，编辑 `.env`：
+Initialization creates a random local key and mock configuration, preserving an existing `.env`. After installing and logging in to the official CodeBuddy CLI, edit `.env`:
 
 ```dotenv
 BRIDGE_BACKEND=workbuddy
 CODEBUDDY_BIN=/absolute/path/to/codebuddy
 ```
 
-用 `command -v codebuddy` 确认入口。`CODEBUDDY_BIN` 必须指向官方 CLI 的 JavaScript 文件，桥接使用 Node 启动它。其余参数见 `.env.example`。可先运行 `npm run doctor` 检查路径和配置；这不会调用模型。
+Use `command -v codebuddy` to locate the entry point. `CODEBUDDY_BIN` must point to the official CLI's JavaScript file, which the bridge launches with Node. Other options are listed in `.env.example`. Run `npm run doctor` to check paths and configuration without making a model request.
 
-## 使用 Codex CLI
+## Codex CLI
 
-在 Codex 中使用 WorkBuddy 模型和客户端工具：
+Use WorkBuddy models and client-side tools in Codex:
 
 ```sh
-npm run bridge:restart    # 已运行旧版桥接时，先加载协议 8
+npm run bridge:restart    # Load protocol 8 if an older bridge is running
 npm run codex
 npm run codex -- --model kimi-k3-1 --cwd /path/to/project
-npm run codex:check       # 真实短回复 + 随机文件读取验证，会消耗积分
+npm run codex:check       # Real short reply + random-file read; consumes credits
 ```
 
-启动参数只作用于这次进程，保留原 Codex 全局配置和登录。支持 Responses 文字、公开思考、函数工具、namespace 及 `apply_patch` 文本工具；工具由 Codex 按自身沙箱/审批执行。当前校验版本为 Codex CLI 0.163.0，真实模型流程需在普通终端验收。详见 [Codex 接入说明](docs/codex.md)。
+Launcher options apply only to that process, preserving global Codex configuration and login. Supported Responses features include text, exposed thinking, function tools, namespaces, and the `apply_patch` text tool. Codex executes tools under its own sandbox and approval rules. The currently validated client version is Codex CLI 0.163.0; verify real-model workflows in a normal terminal. See the [Codex integration guide](docs/codex.md).
 
-## 使用 pi
+## Pi
 
-在项目目录运行：
+Run from the project directory:
 
 ```sh
 npm run pi
 ```
 
-通过 `/model` 选择带 **（workbuddy）** 后缀、provider 为 **`workbuddy-cli`** 的模型。扩展在 pi 进程内调用官方 CLI，无需 HTTP 服务或额外 API key。首次使用按 pi 的正常流程信任项目扩展。
+Use `/model` to select a **（workbuddy）** entry from provider **`workbuddy-cli`**. The extension invokes the official CLI inside the Pi process, without an HTTP service or additional API key. On first use, follow Pi's normal project-extension trust flow.
 
-要从任意目录直接运行 `pi`，先查看全局接入方案，再安装：
+To run plain `pi` from any directory, inspect and apply the global integration:
 
 ```sh
 npm run pi:unify
@@ -57,17 +59,17 @@ npm run pi:unify -- --apply
 pi
 ```
 
-脚本备份并更新 `~/.pi/agent`，移除旧本地 WorkBuddy provider，注册本项目扩展；其他服务商和默认模型保留。若默认曾指向旧 WorkBuddy，则迁移到 V4.1 Flash。项目目录移动后需重新注册。模型更新后 `/reload` 或退出重开。
+The script backs up and updates `~/.pi/agent`, removes the old local WorkBuddy provider, and registers this project's extension. Other providers and the default model are preserved; a default pointing to the old WorkBuddy setup migrates to V4.1 Flash. Register the extension again if the project moves. After model updates, use `/reload` or restart Pi.
 
-## 使用 Claude Code
+## Claude Code
 
-先确认 `~/.claude/settings.json` 中有可用的原服务商 URL 和认证，然后在 `.env` 启用：
+First make sure `~/.claude/settings.json` contains a working URL and authentication for the existing provider. Then enable passthrough in `.env`:
 
 ```dotenv
 BRIDGE_CLAUDE_PASSTHROUGH=1
 ```
 
-在项目目录执行：
+Run in the project directory:
 
 ```sh
 npm run claude:install
@@ -75,99 +77,99 @@ npm run bridge:restart
 claude
 ```
 
-输入 `/model`，选择带 **（workbuddy）** 后缀的模型。也可显式启动：
+Enter `/model` and select an entry ending in **（workbuddy）**, or launch explicitly:
 
 ```sh
 claude --model claude-workbuddy-deepseek-v4.1-flash
 ```
 
-例如 `/model claude-workbuddy-glm-5.3-flash`。Claude 的模型发现会过滤普通非 Claude ID，因此菜单使用 `claude-workbuddy-` 别名，桥接再映射到真实官方 ID。pi 与 OpenAI 客户端使用原 ID。
+Another example is `/model claude-workbuddy-glm-5.3-flash`. Claude model discovery filters ordinary non-Claude IDs, so its menu uses `claude-workbuddy-` aliases that the bridge maps to official model IDs. Pi and OpenAI clients use the original IDs.
 
-安装在本项目 `.claude/settings.local.json` 中启用 gateway model discovery 和启动 hook，保留原 Claude 模型菜单及默认档位。WorkBuddy 选择走官方 CLI，其余模型透传到原服务商。原认证只在运行时读取，不复制到项目。首次启动或更新先执行 `bridge:restart`，让服务在模型发现前就绪。
+Installation enables gateway model discovery and a startup hook in this project's `.claude/settings.local.json`, preserving the original Claude menu and default tier. WorkBuddy selections go through the official CLI; other models pass through to the original provider. Existing authentication is read at runtime and is not copied into the project. On first launch or after an update, run `bridge:restart` so the service is ready before model discovery.
 
-**项目设置仅在本目录及其子目录生效。** 首次使用按 Claude 的正常流程完成项目信任。取消接入使用 `npm run claude:uninstall`。`npm run claude` 是单独的隔离调试启动器；普通使用按上面的流程直接运行 `claude`。
+**Project settings apply only in this directory and its descendants.** Follow Claude's normal project-trust flow on first use. Remove the integration with `npm run claude:uninstall`. `npm run claude` is a separate isolated debugging launcher; for regular use, follow the steps above and run `claude` directly.
 
-## 使用 Kimi Code
+## Kimi Code
 
-安装官方 Kimi Code 后，在项目目录运行：
+After installing official Kimi Code, run from the project directory:
 
 ```sh
 npm run kimi
 ```
 
-在任意工作目录启动，或切换模型：
+To start from another directory or choose a model:
 
 ```sh
 npm --prefix /absolute/path/to/workbuddy-bridge run kimi -- --cwd "$PWD" --model kimi-k3-1
 ```
 
-启动器自动检查并启动桥接，再用目标模型验证一次真实短回复；失败会停在具体错误，不打开一个无法调用的会话。预检会消耗积分。默认打开新会话，使用 `.runtime/kimi-profile`，不会自动恢复原 Kimi 账号下的旧会话。要继续这个 profile 中的会话，可传 `--continue`。
+The launcher checks and starts the bridge, then verifies a real short reply with the selected model. A failed preflight stops with a specific error instead of opening an unusable session. **Preflight consumes credits.** It opens a new session by default using `.runtime/kimi-profile`, rather than automatically resuming sessions from the original Kimi account. Pass `--continue` to continue a session in this profile.
 
-Kimi 使用 Anthropic 文字与客户端工具入口，上下文和输出限制取自模型目录，Kimi K3 默认上下文为 300,000 tokens、最大输出为 32,000。支持显示 CLI 公开输出的 thinking 内容，不支持图片；辅助模型也使用启动时选定的 WorkBuddy 入口。通过 `/model` 选择同一 profile 中的其他模型。
+Kimi uses the Anthropic text and client-tool interface. Context and output limits come from the model catalog; Kimi K3 defaults to a 300,000-token context and a 32,000-token maximum output. Thinking exposed by the CLI can be displayed; images are not supported. Auxiliary models use the WorkBuddy entry selected at launch. Use `/model` to choose another model in the same profile.
 
-以上隔离启动器不修改 `~/.kimi-code` 的配置与会话。直接运行普通 `kimi` 时，要安装到它实际读取的配置：
+The isolated launcher does not modify `~/.kimi-code` configuration or sessions. To use plain `kimi`, install into the configuration it actually reads:
 
 ```sh
-npm run kimi:install               # 查看迁移方案，无模型请求
-npm run kimi:install -- --apply    # 备份并更新普通 Kimi 配置
+npm run kimi:install               # Inspect migration; no model request
+npm run kimi:install -- --apply    # Back up and update regular Kimi configuration
 kimi
 ```
 
-安装仅替换已知本地 WorkBuddy 提供商及其模型，保留其他提供商和用户 hook；原默认指向 WorkBuddy 时同时修正 thinking 和辅助模型。WorkBuddy 改用本项目端口上的 Anthropic 接口，模型预算取自目录。启动 hook 会在新会话开始时自动检查并启动桥接。本地桥接密钥写入用户的私有 Kimi 配置，不写进仓库。退出旧客户端后重开，避免继续使用旧会话的 64K 配置。
+Installation replaces only known local WorkBuddy providers and their models, preserving other providers and user hooks. If the original default was WorkBuddy, thinking and auxiliary-model settings are also corrected. WorkBuddy uses the Anthropic interface on this project's port, with budgets from the catalog. A startup hook checks and starts the bridge for new sessions. The local bridge key is written into private user configuration, not the repository. Exit and reopen an old client to avoid retaining a session's previous 64K settings.
 
-旧 pi 会话若仍选择 `workbuddy / deepseek-v4-flash` 并连接 8799，加载本项目扩展后会在当前进程内改走官方 CLI，并明确迁移到 `workbuddy-cli / deepseek-v4.1-flash`。在 pi 中取消重试后运行 `/reload`；如果手动选模型，选择后缀（workbuddy）的 `[workbuddy-cli]` 项。仅拦截已确认属于本项目的旧本地地址，不重写全局 models.json，不改其他服务商。需要永久清理旧配置时，退出 pi 后在普通终端运行 `npm run pi:unify -- --apply`，原文件会备份。
+If an old Pi session still selects `workbuddy / deepseek-v4-flash` at port 8799, loading the extension redirects that process to the official CLI and explicitly migrates it to `workbuddy-cli / deepseek-v4.1-flash`. Cancel retries and run `/reload`; when choosing manually, select a **（workbuddy）** entry under `[workbuddy-cli]`. Only verified old local addresses belonging to this project are intercepted. Other providers and global `models.json` are not rewritten. To clean up permanently, exit Pi and run `npm run pi:unify -- --apply` in a normal terminal; originals are backed up.
 
-如果 pi 提示工具 JSON 格式错误，或 Kimi 仍连旧端口，可在普通终端执行 `npm run local:repair`。它备份并迁移普通 Kimi 配置、重启桥接，然后核对 pi / Kimi 的真实文字回复和读取临时随机文件的结果，会消耗积分；只有全部通过才打印 `LOCAL_REPAIR_OK`。`npm run local:repair -- --plan` 只查看方案。
+If Pi reports malformed tool JSON or Kimi still connects to the old port, run `npm run local:repair` in a normal terminal. It backs up and migrates regular Kimi configuration, restarts the bridge, and verifies real text replies and temporary random-file reads in Pi and Kimi. It consumes credits and prints `LOCAL_REPAIR_OK` only when every check passes. `npm run local:repair -- --plan` previews the plan.
 
-如果前三项已通过，只剩 Kimi 文件读取失败，可执行 `npm run local:repair -- --kimi-tools-only` 继续剩余检查。Kimi 2.1.1 不允许 `--prompt` 与 `--yolo` / `--auto` / `--plan` 组合，项目检查命令使用 prompt 模式自身的非交互权限。
+If the first three checks pass and only Kimi file reading fails, continue with `npm run local:repair -- --kimi-tools-only`. Kimi 2.1.1 does not allow `--prompt` together with `--yolo`, `--auto`, or `--plan`; project checks use prompt mode's own non-interactive permissions.
 
-如果任务说“我先读文件”后就停止，或反复 thinking 后报 `bounded recovery turns`，更新后先执行 `npm run bridge:restart`；pi 使用 `/reload`。默认 `BRIDGE_TOOL_TRANSPORT=native` 向上游提供真正的 MCP 工具定义和参数结构，接收原生函数请求，再交给 Kimi / pi / Claude 执行。MCP 代理只返回交接通知，不执行文件或 shell 操作；桥接校验工具名称、参数和工具选择。此前仅靠工具提示词、增加生成轮数的做法仍会卡住，旧 `prompt` 模式仅供兼容调试。
+If a task says it will read files and then stops, or repeatedly reports `bounded recovery turns`, update and run `npm run bridge:restart`; use `/reload` in Pi. Default `BRIDGE_TOOL_TRANSPORT=native` provides real MCP tool definitions and parameter schemas to the upstream, receives native function requests, and hands them to Kimi / Pi / Claude. The MCP proxy returns handoff notifications and does not execute files or shell commands. The bridge validates tool names, parameters, and tool selection. The old `prompt` transport remains only for compatibility; tool instructions and extra recovery turns alone did not fix the stalled behavior.
 
-上游在一轮生成后交回工具请求；只有完整且合法的原生调用才能把这个特定轮数边界视为交接，真正的错误仍报错。没有工具调用的明确行动预告最多纠正一次，共享原超时。更换接法后建议先在新会话验收，避免旧会话携带反复空转的历史。
+After a generation, the upstream hands back tool requests. Only complete, valid native calls allow that specific turn boundary to count as a handoff; genuine errors remain errors. An explicit promise to act without a tool call receives at most one recovery attempt within the original timeout. After changing integration methods, validate in a new session to avoid history from repeated stalled attempts.
 
-可运行 `npm run agent:check -- --model kimi-k3-1` 验证连续任务。它要求真实模型依次读取两个临时随机文件，再返回只存在于第二个文件的标记，全程不输入“继续”。这会消耗积分；验证的是模型与桥接适配器的连续工具流程，客户端 UI 和原长会话仍需实际观察。
+Use `npm run agent:check -- --model kimi-k3-1` to verify task continuation. It requires the real model to read two temporary random files in sequence and return a marker found only in the second, without a “continue” prompt. It consumes credits and validates the model/bridge adapter tool sequence; the client UI and original long-running session still require observation.
 
-详情及旧 8799 / 64K 配置的排查见 [Kimi 说明](docs/kimi.md)。隔离启动器的真实文字和文件读取验收：`npm run kimi:check`。配置解析与 fixture 测试不代表真实账号调用成功，联机结果以自己运行检查命令为准。
+See the [Kimi guide](docs/kimi.md) for details and old 8799 / 64K configuration issues. `npm run kimi:check` validates real text and file reading with the isolated launcher. Configuration parsing and fixtures do not prove real-account calls work; run the online checks in your own environment.
 
-## 推理显示与复查
+## Thinking display and review
 
-桥接保留官方 CLI 的公开 `thinking` 块，并把增量内容实时转发给 pi / Kimi / Claude 的 Anthropic 客户端。最终回答和工具调用在 JSON 与工具参数校验通过后发送；如果 CLI 只给出了最终 thinking 快照，就在完成后显示。某个模型或请求没有公开 thinking 时，只显示答案。不会从答案中推测或补写推理内容，也不读取调试元数据。
+The bridge preserves public `thinking` blocks from the official CLI and streams deltas to Pi / Kimi / Claude Anthropic clients. Final answers and tool calls are sent after JSON and parameter validation. If the CLI provides only a final thinking snapshot, it appears at completion. When a model or request exposes no thinking, only the answer is shown. The bridge does not invent reasoning from the answer or read private debug metadata.
 
-pi 更新后 `/reload` 或重开，`Ctrl+T` 展开或收起 thinking。这些内容保存在 pi 会话中，`/export review.html` 可导出复查；实际工具记录和文件 diff 仍由客户端保存。CLI 默认 effort 为 `low`，pi 选择的 reasoning 等级及 Anthropic `output_config.effort` 会传给 CLI；其他情况使用 `.env` 的 `BRIDGE_REASONING_EFFORT`。原生 token budget、强制关闭 thinking 等参数仍不保证得到相同行为。
+After updating Pi, use `/reload` or restart. `Ctrl+T` expands or collapses thinking. It is retained in Pi session history and can be exported with `/export review.html`; tool records and file diffs remain the client's responsibility. The CLI's default effort is `low`. Pi's selected reasoning level and Anthropic `output_config.effort` are forwarded; other requests use `.env`'s `BRIDGE_REASONING_EFFORT`. Native token budgets and forced thinking-disable options do not guarantee equivalent behavior.
 
-Kimi / Claude 更新后运行 `npm run bridge:restart` 加载新协议。普通 Kimi 再运行 `npm run kimi:install -- --apply`，备份并更新为可显示 thinking 的配置，然后退出旧会话重开。隔离 Kimi 启动器会自动生成新 profile。OpenAI Chat Completions 返回 `reasoning_content`，目前仍在完成后发送。
+After updating Kimi / Claude, run `npm run bridge:restart` to load the protocol. For regular Kimi, also run `npm run kimi:install -- --apply` to back up and enable thinking display, then restart old sessions. The isolated Kimi launcher generates a new profile automatically. OpenAI Chat Completions returns `reasoning_content` after completion rather than streaming it.
 
-## 其他 API 客户端
+## Other API clients
 
 ```sh
 npm start
 ```
 
-配置 OpenAI Base URL 为 `http://127.0.0.1:18765/v1`，Anthropic Base URL 为 `http://127.0.0.1:18765`；API key 使用 `.env` 中的 `BRIDGE_API_KEY`。支持 `/v1/chat/completions`、`/v1/responses` 和 `/v1/messages` 的文字子集，详情见[兼容表](docs/compatibility.md)。HTTP 服务只监听本机回环地址。
+Set the OpenAI base URL to `http://127.0.0.1:18765/v1` or the Anthropic base URL to `http://127.0.0.1:18765`. Use `.env`'s `BRIDGE_API_KEY` as the API key. The service supports text subsets of `/v1/chat/completions`, `/v1/responses`, and `/v1/messages`; see the [compatibility table](docs/compatibility.md). HTTP listens only on the loopback interface.
 
-## 验证与维护
+## Verification and maintenance
 
 ```sh
-npm run check          # 语法与模型目录检查，无上游调用
-npm test               # 协议、进程、配置迁移及可选客户端兼容测试
-npm run models         # 模型、默认上下文与最大输出
-npm run doctor         # 路径及配置诊断，无模型调用
-npm run bridge:restart # 更新并启动 HTTP 后台服务
-npm run bridge:stop    # 认证关闭 HTTP 后台服务
+npm run check          # Syntax and model-catalog checks; no upstream call
+npm test               # Protocol, process, migration, and optional client tests
+npm run models         # Models and default context/output limits
+npm run doctor         # Path/configuration diagnostics; no model call
+npm run bridge:restart # Update and start the background HTTP service
+npm run bridge:stop    # Authenticated HTTP-service shutdown
 ```
 
-真实账号验收：
+Real-account validation:
 
 ```sh
 npm run integration:check
 ```
 
-此命令验证 WorkBuddy 工具往返、Claude 和 pi 的文字及读取临时随机文件结果，会调用真实模型并可能消耗积分。官方 CLI 可回复不等于桥接端到端已通过。缺少本地客户端时，相应隔离客户端测试会跳过；CI 不需要账号。
+This checks WorkBuddy tool round trips and real Claude/Pi text replies and temporary random-file reads. It makes real model calls and may consume credits. A working official CLI does not by itself prove bridge end-to-end success. Isolated client checks are skipped when a local client is absent; CI requires no account.
 
-WorkBuddy 使用积分，pi 的美元费率 0 只是未知占位，不代表免费。积分共享、模型权限和实际价格以[官方说明](https://www.codebuddy.cn/docs/workbuddy/Pricing)及账号记录为准。模型列表是 2026-10-06 的官方目录快照，不保证每个账号都能调用。图片、音频和完整原生会话协议尚未支持；历史仍作为 JSON 对话提示提交。公开思考内容以 CLI 实际输出为准，失败不会自动切换服务商。
+WorkBuddy uses credits. A zero dollar rate in Pi is an unknown-price placeholder, **not a claim that usage is free**. Shared credits, model access, and prices follow the [official pricing information](https://www.codebuddy.cn/docs/workbuddy/Pricing) and your account records. The model list is an official-catalog snapshot dated 2026-10-06 and does not guarantee every account can call every model. Images, audio, and the full native session protocol are not supported; history is still submitted as a JSON conversation prompt. Thinking depends on actual CLI output. Failures do not automatically switch providers.
 
-`.env`、本地 Claude 设置、运行日志和私有调试记录均不应提交。参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)。采用 [MIT](LICENSE) 许可证。
+Do not commit `.env`, local Claude settings, runtime logs, or private debug records. See [CONTRIBUTING.md](CONTRIBUTING.md) for development and [LICENSE](LICENSE) for the MIT license.
 
-## Buddy 加油站每日签到（实验性）
+## Buddy daily check-in credits (experimental)
 
-WorkBuddy 在后台保持登录时，可尝试通过 App 自带本地通道领取每日签到积分；额度以官方活动规则为准。在普通 macOS 终端运行 `npm run credits:install`，它先验证真实签到，再安装每天 09:05、每小时补查的定时任务。仅查询用 `npm run credits:status`，移除用 `npm run credits:uninstall`。当前开发环境的本地 socket 权限受限，尚未验证真实领取；如果要求设备验证则停止，不会绕过。详见 [签到脚本说明](tools/daily-checkin/README.md)。
+With WorkBuddy logged in in the background, you can try claiming daily check-in credits through the app's own local channel, subject to official campaign rules. Run `npm run credits:install` in a normal macOS terminal: it first verifies a real check-in, then installs a daily 09:05 job with hourly catch-up checks. Query only with `npm run credits:status`; remove with `npm run credits:uninstall`. The development environment restricts local socket access, so actual credit collection has not yet been verified. Device verification stops the process rather than being bypassed. See the [check-in script guide](tools/daily-checkin/README.md).
