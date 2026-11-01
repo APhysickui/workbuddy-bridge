@@ -1,8 +1,10 @@
-export const BRIDGE_PROTOCOL = 8;
+import { CATALOG_REVISION } from './model-catalog.mjs';
+
+export const BRIDGE_PROTOCOL = 9;
 
 export function bridgeIdentity(config) {
   return { bridge: 'workbuddy-bridge', protocol: BRIDGE_PROTOCOL, backend: config.backend,
-    models: Object.fromEntries(config.models), claude_model: config.claudeModel ?? null,
+    models: Object.fromEntries(config.models), catalog_revision: CATALOG_REVISION, claude_model: config.claudeModel ?? null,
     cli_path: config.cliPath ?? null, claude_passthrough: Boolean(config.claudePassthrough), reasoning_effort: config.reasoningEffort ?? 'low', tool_transport: config.toolTransport ?? 'native' };
 }
 
@@ -40,7 +42,7 @@ export async function matchingBridge(config, fetcher = fetch) {
   const status = await readBridgeStatus(config, fetcher);
   if (!status) return false;
   const expected = bridgeIdentity(config);
-  if (status.bridge !== expected.bridge || status.protocol !== expected.protocol || status.backend !== 'workbuddy' ||
+  if (status.bridge !== expected.bridge || status.protocol !== expected.protocol || status.backend !== 'workbuddy' || status.catalog_revision !== expected.catalog_revision ||
       status.cli_path !== expected.cli_path || status.claude_passthrough !== expected.claude_passthrough ||
       status.reasoning_effort !== expected.reasoning_effort ||
       status.tool_transport !== expected.tool_transport ||

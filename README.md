@@ -2,7 +2,7 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-Use WorkBuddy models in **Codex CLI, Pi, Claude Code, Kimi Code, and local API clients** through the authenticated official CodeBuddy CLI. Model names carry a **（workbuddy）** suffix. Pi and Claude default to **DeepSeek V4.1 Flash**; the Kimi launcher defaults to **Kimi K3**. The catalog contains 19 entries covering DeepSeek, GLM, Kimi, MiniMax, Hunyuan, and official automatic tiers.
+Use WorkBuddy models in **Codex CLI, Pi, Claude Code, Kimi Code, and local API clients** through the authenticated official CodeBuddy CLI. Model names carry a **（workbuddy）** suffix. Pi and Claude default to **DeepSeek V4.1 Flash**; the Kimi launcher defaults to **Kimi K3**. The current catalog contains 18 entries covering DeepSeek, GLM, Kimi, MiniMax, Hunyuan, and official automatic tiers.
 
 This local bridge uses the CLI's normal login, without extracting desktop tokens.
 
@@ -33,7 +33,7 @@ Use `command -v codebuddy` to locate the entry point. `CODEBUDDY_BIN` must point
 Use WorkBuddy models and client-side tools in Codex:
 
 ```sh
-npm run bridge:restart    # Load protocol 8 if an older bridge is running
+npm run bridge:restart    # Load protocol 9 if an older bridge is running
 npm run codex
 npm run codex -- --model kimi-k3-1 --cwd /path/to/project
 npm run codex:check       # Real short reply + random-file read; consumes credits
@@ -166,10 +166,24 @@ npm run integration:check
 
 This checks WorkBuddy tool round trips and real Claude/Pi text replies and temporary random-file reads. It makes real model calls and may consume credits. A working official CLI does not by itself prove bridge end-to-end success. Isolated client checks are skipped when a local client is absent; CI requires no account.
 
-WorkBuddy uses credits. A zero dollar rate in Pi is an unknown-price placeholder, **not a claim that usage is free**. Shared credits, model access, and prices follow the [official pricing information](https://www.codebuddy.cn/docs/workbuddy/Pricing) and your account records. The model list is an official-catalog snapshot dated 2026-10-06 and does not guarantee every account can call every model. Images, audio, and the full native session protocol are not supported; history is still submitted as a JSON conversation prompt. Thinking depends on actual CLI output. Failures do not automatically switch providers.
+WorkBuddy uses credits. A zero dollar rate in Pi is an unknown-price placeholder, **not a claim that usage is free**. Shared credits, model access, and prices follow the [official pricing information](https://www.codebuddy.cn/docs/workbuddy/Pricing) and your account records. The model list is an official-catalog snapshot dated 2026-11-01 and does not guarantee every account can call every model. Images, audio, and the full native session protocol are not supported; history is still submitted as a JSON conversation prompt. Thinking depends on actual CLI output. Failures do not automatically switch providers.
 
 Do not commit `.env`, local Claude settings, runtime logs, or private debug records. See [CONTRIBUTING.md](CONTRIBUTING.md) for development and [LICENSE](LICENSE) for the MIT license.
 
 ## Buddy daily check-in credits (experimental)
 
 With WorkBuddy logged in in the background, you can try claiming daily check-in credits through the app's own local channel, subject to official campaign rules. Run `npm run credits:install` in a normal macOS terminal: it first verifies a real check-in, then installs a daily 09:05 job with hourly catch-up checks. Query only with `npm run credits:status`; remove with `npm run credits:uninstall`. The development environment restricts local socket access, so actual credit collection has not yet been verified. Device verification stops the process rather than being bypassed. See the [check-in script guide](tools/daily-checkin/README.md).
+
+## Refresh the WorkBuddy model catalog
+
+Open the signed-in WorkBuddy app to refresh its official cache, then run:
+
+```sh
+npm run models:refresh                 # Preview additions, removals, and limits
+npm run models:refresh -- --apply      # Import public metadata and back up changes
+npm run models
+```
+
+`BRIDGE_MODELS=catalog` follows the refreshed project catalog. Complete previous default lists migrate to this mode; custom lists, aliases, and chosen default models are preserved. The latest explicit CLI list includes MiniMax M3.1 Flash, Kimi K3.1 Pro, Step 5 Preview, and Xiaomi MiMo V2.6 Pro.
+
+Most entries with a 1M catalog ceiling still use a **300K default CLI budget**. The bridge advertises the active default, not an unselected larger tier, and never adds input and output limits. Request-body byte limits are separate from token limits. See [models and context limits](docs/models.md) for exact values. After applying changes, use Pi `/reload`; restart the HTTP bridge and relaunch Kimi/Codex/Claude profiles. A catalog fingerprint prevents reusing a daemon with outdated limits.

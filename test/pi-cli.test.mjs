@@ -49,7 +49,7 @@ test('installed pi CLI lists the catalog, selects several models, runs its read 
   const list = await run(pi, ['--offline', '--approve', '--no-extensions', '-e', join(project, '.pi/extensions/workbuddy.js'),
     '--list-models', 'workbuddy-cli'], options);
   for (const model of workbuddyCatalog.models) assert.ok(list.stdout.includes(model.id), `Missing ${model.id} in pi's actual menu`);
-  for (const id of ['glm-5.3-flash', 'kimi-k3-1', 'minimax-m3']) {
+  for (const id of ['glm-5.3-flash', 'kimi-k3-1', 'minimax-m3.1-flash', 'kimi-k3.1-pro', 'step-5-preview', 'mimo-v2.6-pro']) {
     const args = [...common];
     args[args.indexOf('--model') + 1] = id;
     const selected = await run(pi, [...args, '--no-tools', 'Reply with PI_WORKBUDDY_OK only.'], options);

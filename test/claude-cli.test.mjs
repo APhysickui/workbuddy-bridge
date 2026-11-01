@@ -59,7 +59,7 @@ test('installed Claude includes the discovered WorkBuddy lineup with original pi
     assert.equal(response.subtype, 'success');
     const menu = response.response.models;
     const workbuddy = menu.filter(row => row.value.startsWith('claude-workbuddy-'));
-    assert.equal(workbuddy.length, 19); // The single custom option and discovery are deduplicated.
+    assert.equal(workbuddy.length, models.length); // The single custom option and discovery are deduplicated.
     for (const model of models) {
       const row = workbuddy.find(row => row.value === model.id);
       assert.equal(row?.displayName, model.display_name, `Missing or mislabeled ${model.id}`);

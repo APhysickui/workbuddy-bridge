@@ -28,7 +28,7 @@ test('pi adds a separate provider without replacing the old workbuddy configurat
 test('the default model menu uses official CLI context defaults and model-specific output budgets', () => {
   const all = readConfig({ BRIDGE_API_KEY: config.apiKey });
   const models = new Map(piProvider(all).models.map(model => [model.id, model]));
-  assert.equal(models.size, 19);
+  assert.equal(models.size, workbuddyCatalog.models.length);
   for (const model of models.values()) {
     assert.ok(model.name.endsWith('（workbuddy）'));
     assert.deepEqual(model.input, ['text']);
@@ -39,8 +39,10 @@ test('the default model menu uses official CLI context defaults and model-specif
   assert.equal(catalogModel('deepseek-v4.1-flash').maxInputTokens, 1000000);
   assert.equal(models.get('deepseek-v4.1-flash').maxTokens, 128000);
   assert.equal(models.get('glm-5.3-flash').maxTokens, 131072);
-  assert.equal(models.get('glm-5.1').contextWindow, 200000);
-  assert.equal(models.get('minimax-m3').contextWindow, 300000);
+  assert.equal(models.get('minimax-m3.1-flash').contextWindow, 300000);
+  assert.equal(models.get('kimi-k3.1-pro').maxTokens, 32000);
+  assert.equal(models.get('step-5-preview').contextWindow, 300000);
+  assert.equal(models.get('mimo-v2.6-pro').maxTokens, 128000);
   assert.equal(models.get('kimi-k3-1').maxTokens, 32000);
   assert.equal(models.get('hy3').contextWindow, 192000);
   assert.notEqual(models.get('hy3').name, models.get('hy3-x').name);
@@ -50,14 +52,14 @@ test('the default model menu uses official CLI context defaults and model-specif
 
 test('public aliases take limits and names from their actual upstream target', () => {
   const aliases = readConfig({ BRIDGE_API_KEY: config.apiKey,
-    BRIDGE_MODELS: 'wb-kimi=kimi-k3-1,glm-5.1=minimax-m3,custom=custom-model',
+    BRIDGE_MODELS: 'wb-kimi=kimi-k3-1,glm-5.1=minimax-m3.1-flash,custom=custom-model',
     BRIDGE_CLAUDE_MODEL: 'wb-kimi', BRIDGE_CLAUDE_MODEL_NAME: 'My Kimi' });
   const [kimi, minimax, unknown] = piProvider(aliases).models;
   assert.equal(kimi.name, 'My Kimi（workbuddy）');
   assert.equal(kimi.contextWindow, 300000);
   assert.equal(kimi.maxTokens, 32000);
-  assert.equal(minimax.name, 'MiniMax-M3（workbuddy）');
-  assert.equal(minimax.maxTokens, 64000);
+  assert.equal(minimax.name, 'MiniMax-M3.1-Flash（workbuddy）');
+  assert.equal(minimax.maxTokens, 128000);
   assert.equal(unknown.contextWindow, 64000);
   assert.equal(unknown.maxTokens, 4096);
 });
@@ -74,6 +76,8 @@ test('the HTTP model list and pi report the same catalog limits and display name
     assert.equal(model.id, pi[i].id);
     assert.equal(model.display_name, pi[i].name);
     assert.equal(model.context_window, pi[i].contextWindow);
+    assert.equal(model.max_input_tokens, pi[i].contextWindow);
+    assert.equal(model.catalog_max_input_tokens, catalogModel(all.models.get(model.id)).maxInputTokens);
     assert.equal(model.max_output_tokens, pi[i].maxTokens);
   }
 });

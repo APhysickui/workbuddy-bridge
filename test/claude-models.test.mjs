@@ -14,9 +14,9 @@ test('Claude discovery lists all WorkBuddy models with recognized aliases and th
   const headers = { authorization: `Bearer ${config.apiKey}`, 'anthropic-version': '2023-06-01' };
   const response = await fetcher('http://local/v1/models?limit=1000', { headers });
   const list = (await response.json()).data;
-  assert.equal(list.length, 19);
+  assert.equal(list.length, config.models.size);
   assert.ok(list.every(model => /(claude|anthropic)/i.test(model.id) && model.display_name.endsWith('（workbuddy）')));
-  assert.equal(new Set(list.map(model => model.id)).size, 19);
+  assert.equal(new Set(list.map(model => model.id)).size, config.models.size);
   assert.ok(list.some(model => model.id === 'claude-workbuddy-kimi-k3-1' && model.display_name === 'Kimi-K3（workbuddy）'));
   assert.equal(response.headers.get('vary'), 'anthropic-version');
   const openai = await fetcher('http://local/v1/models', { headers: { authorization: headers.authorization } });

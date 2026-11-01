@@ -14,7 +14,8 @@ test('startup recognizes only an authenticated bridge with the correct backend a
   for (const status of [
     { bridge: 'workbuddy-bridge', backend: 'mock', models: { 'deepseek-v4-flash': 'deepseek-v4-flash' } },
     { bridge: 'workbuddy-bridge', backend: 'workbuddy', models: { 'deepseek-v4-flash': 'another-model' } },
-    { ...bridgeIdentity({ ...config, backend: 'workbuddy' }), protocol: 7 },
+    { ...bridgeIdentity({ ...config, backend: 'workbuddy' }), protocol: 8 },
+    { ...bridgeIdentity({ ...config, backend: 'workbuddy' }), catalog_revision: 'old-catalog' },
     { ...bridgeIdentity({ ...config, backend: 'workbuddy' }), cli_path: '/old/codebuddy' },
     { ...bridgeIdentity({ ...config, backend: 'workbuddy' }), claude_passthrough: true },
     { ...bridgeIdentity({ ...config, backend: 'workbuddy' }), tool_transport: 'prompt' }

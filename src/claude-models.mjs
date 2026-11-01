@@ -1,4 +1,4 @@
-import { catalogModel, catalogContextWindow, modelDisplayName } from './model-catalog.mjs';
+import { catalogModel, catalogContextWindow, catalogContextLengths, catalogMaximumContextWindow, modelDisplayName } from './model-catalog.mjs';
 
 export function claudeModelId(id) {
   return `claude-workbuddy-${id}`;
@@ -22,7 +22,8 @@ export function bridgeModelList(config, anthropic = false) {
     return { id: anthropic ? claudeModelId(id) : id, object: 'model', type: 'model', created: 0,
       owned_by: 'local-bridge', display_name: modelDisplayName(config, id),
       description: `WorkBuddy · official CodeBuddy CLI · ${upstreamId}`,
-      ...(model ? { context_window: catalogContextWindow(model), max_input_tokens: model.maxInputTokens,
-        max_output_tokens: model.maxOutputTokens } : {}) };
+      ...(model ? { context_window: catalogContextWindow(model), max_input_tokens: catalogContextWindow(model),
+        max_output_tokens: model.maxOutputTokens, catalog_max_input_tokens: model.maxInputTokens,
+        catalog_max_context_window: catalogMaximumContextWindow(model), catalog_supported_context_windows: catalogContextLengths(model) } : {}) };
   });
 }

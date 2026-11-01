@@ -3,7 +3,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { workbuddyCatalog, catalogContextWindow } from '../src/model-catalog.mjs';
+import { workbuddyCatalog, catalogContextWindow, catalogMaximumContextWindow, catalogContextLengths } from '../src/model-catalog.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 async function sourceFiles(directory) {
@@ -29,8 +29,11 @@ for (const model of workbuddyCatalog.models) {
     assert.ok(Number.isSafeInteger(limit) && limit > 0, `Invalid limit: ${model.id}`);
   }
   assert.ok(context <= model.maxInputTokens, `Default context exceeds maximum: ${model.id}`);
+  assert.ok(catalogMaximumContextWindow(model) <= model.maxInputTokens, `Selectable context exceeds maximum: ${model.id}`);
+  if (model.contextWindow) assert.ok(catalogContextLengths(model).includes(context), `Default context missing from options: ${model.id}`);
   assert.ok(model.maxOutputTokens <= context, `Output exceeds context: ${model.id}`);
   assert.ok(doc.includes('`' + model.id + '`'), `Undocumented model: ${model.id}`);
 }
 assert.ok(ids.has(workbuddyCatalog.defaultModel), 'Default model is absent from catalog');
+if (workbuddyCatalog.officialDefaultModel) assert.ok(ids.has(workbuddyCatalog.officialDefaultModel), 'Official default is absent from catalog');
 console.log(`Checked ${files.length} JavaScript files and ${ids.size} catalog entries; no upstream requests.`);

@@ -1,43 +1,48 @@
 # WorkBuddy 可选模型
 
-来源：官方 WorkBuddy 模型目录缓存，快照时间 `2026-10-06T04:31:25.007000Z`。仅加入 `cli` agent 的 19 个可选入口，模型 ID 原样传给官方 CodeBuddy。默认是 DeepSeek V4.1 Flash；账号权限及模型变动以官方结果为准。
+来源：本机官方 WorkBuddy 缓存，保存时间 `2026-11-01T09:49:47.286Z`。只导入 cli agent 显式列出的 **18** 个入口，排除隐藏实验、图片/视频、补全及仅有 craft 标签但未列入 CLI 菜单的模型。目录默认模型为 `fast-model`；本项目保留已有默认 `deepseek-v4.1-flash`，不静默替换用户选择。
 
-pi 中所有名称带 **（workbuddy）** 后缀，提供商为 `workbuddy-cli`。按 [README](../README.md) 加载项目扩展或安装全局入口后，用 `/model` 选择；目录更新后 `/reload` 或退出重开。
+所有客户端名称带（workbuddy）后缀。目录存在不代表账号权限或真实调用已经逐一验证。
 
-输入与输出单位都是 tokens。官方目录中的 `maxInputTokens` 被 CLI 用作共享上下文预算；pi 使用其 `contextWindow.defaultLength`，未提供该字段时使用 `maxInputTokens`。因此部分模型虽然最高支持 1,000,000，上下文默认仍是 300,000；输出占用同一预算，输入实际可用空间需预留回答与系统提示。
+## 上下文限制的含义
 
-| 模型 | 实际请求 ID | 默认上下文（pi / CLI） | 目录上下文上限 | 最大输出 |
-| --- | --- | ---: | ---: | ---: |
-| DeepSeek V4.1 Flash | `deepseek-v4.1-flash` | 300,000 | 1,000,000 | 128,000 |
-| 快速 | `fast-model` | 300,000 | 300,000 | 48,000 |
-| 均衡 | `balanced-model` | 300,000 | 300,000 | 48,000 |
-| 极致 | `deep-model` | 300,000 | 300,000 | 48,000 |
-| Hy4 preview | `hy4-preview` | 300,000 | 960,000 | 64,000 |
-| Hy3 | `hy3` | 192,000 | 192,000 | 64,000 |
-| Hy3 X | `hy3-x` | 192,000 | 192,000 | 64,000 |
-| Space-Bunny | `space-bunny` | 1,000,000 | 1,000,000 | 128,000 |
-| GLM-5.3 | `glm-5.3` | 300,000 | 1,000,000 | 64,000 |
-| GLM-5.3-Flash | `glm-5.3-flash` | 300,000 | 1,000,000 | 131,072 |
-| GLM-5.2 | `glm-5.2` | 300,000 | 1,000,000 | 64,000 |
-| GLM-5.1 | `glm-5.1` | 200,000 | 200,000 | 48,000 |
-| GLM-5v-Turbo | `glm-5v-turbo` | 200,000 | 200,000 | 64,000 |
-| MiniMax-M3 | `minimax-m3` | 300,000 | 512,000 | 64,000 |
-| Kimi-K3 | `kimi-k3-1` | 300,000 | 1,000,000 | 32,000 |
-| Kimi-K2.8-Preview | `kimi-k2.8-preview` | 300,000 | 1,000,000 | 64,000 |
-| Kimi-K2.7-Code | `kimi-k2.7` | 256,000 | 256,000 | 32,000 |
-| Kimi-K2.6 | `kimi-k2.6` | 256,000 | 256,000 | 32,000 |
-| DeepSeek V4 Pro | `deepseek-v4-pro` | 300,000 | 1,000,000 | 128,000 |
+单位为 tokens。**默认共享上下文、CLI 可选最大预算、目录 maxInputTokens、maxOutputTokens 是不同字段，不能相加。** CLI 对至少两个合法 supportedLengths 选项使用其中的 defaultLength；无有效默认值时使用最小合法档位，未提供多个档位时使用 maxInputTokens。桥接与该算法一致。系统提示、工具定义、对话与输出会占用上下文，客户端可用输入应留出输出空间。
 
-查看本机实际启用列表：
+当前 print 模式调用没有经过验证的上下文档位参数，所以桥接向 pi、Kimi、Codex、Claude 发现接口声明的**实际预算始终为 CLI 默认值**，不把 1M 目录上限当作默认。上游允许在其他会话模式选择更长档位，不代表桥接已经启用了它。未做百万 token 实际满载测试，也不能用本地字符数精确推算模型 tokenizer 的 token 数。
 
-```sh
-npm run models
-```
+HTTP 字节限制与 token 上限独立：init 的请求体上限是 2 MiB，可通过 BRIDGE_MAX_BODY_BYTES 配置到 4 MiB；很长的 JSON 可能先遇到 413。CLI 输出仍有 2 MiB 保护上限。目录中的 1M / 最大输出是模型元数据，不保证所有编码、封装和客户端都能塞满该容量。
 
-Claude Code 安装项目接入后，同样可在 `/model` 菜单选择这 19 个带（workbuddy）后缀的入口。安装器开启 gateway model discovery；Claude 的发现逻辑只接受包含 `claude` 或 `anthropic` 的 ID，所以菜单使用 `claude-workbuddy-` 前缀作为桥接别名。例如 `/model claude-workbuddy-glm-5.3-flash`；实际调用仍为表中的 `glm-5.3-flash`。pi 和 OpenAI 客户端继续使用表中原 ID。原 Claude 服务商的模型菜单和默认值保留。
+| 模型 | 实际请求 ID | 桥接/CLI 默认预算 | CLI 可选最大预算 | 目录 maxInputTokens | 最大输出 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 快速 | `fast-model` | 300,000 | 300,000 | 300,000 | 48,000 |
+| 均衡 | `balanced-model` | 300,000 | 300,000 | 300,000 | 48,000 |
+| 极致 | `deep-model` | 300,000 | 300,000 | 300,000 | 48,000 |
+| Hy4 preview | `hy4-preview` | 300,000 | 960,000 | 960,000 | 64,000 |
+| Hy3 | `hy3` | 192,000 | 192,000 | 192,000 | 64,000 |
+| Hy3 X | `hy3-x` | 192,000 | 192,000 | 192,000 | 64,000 |
+| DeepSeek V4.1 Flash | `deepseek-v4.1-flash` | 300,000 | 1,000,000 | 1,000,000 | 128,000 |
+| GLM-5.3 | `glm-5.3` | 300,000 | 1,000,000 | 1,000,000 | 64,000 |
+| GLM-5.3-Flash | `glm-5.3-flash` | 300,000 | 1,000,000 | 1,000,000 | 131,072 |
+| GLM-5.2 | `glm-5.2` | 300,000 | 1,000,000 | 1,000,000 | 64,000 |
+| Space-Bunny | `space-bunny` | 1,000,000 | 1,000,000 | 1,000,000 | 128,000 |
+| MiniMax-M3.1-Flash | `minimax-m3.1-flash` | 300,000 | 1,000,000 | 1,000,000 | 128,000 |
+| Kimi-K3.1-Pro | `kimi-k3.1-pro` | 300,000 | 1,000,000 | 1,000,000 | 32,000 |
+| Kimi-K3 | `kimi-k3-1` | 300,000 | 1,000,000 | 1,000,000 | 32,000 |
+| Kimi-K2.8-Preview | `kimi-k2.8-preview` | 300,000 | 1,000,000 | 1,000,000 | 64,000 |
+| DeepSeek V4 Pro | `deepseek-v4-pro` | 300,000 | 1,000,000 | 1,000,000 | 128,000 |
+| Step-5-Preview | `step-5-preview` | 300,000 | 1,000,000 | 1,000,000 | 64,000 |
+| Xiaomi MiMo-V2.6-Pro | `mimo-v2.6-pro` | 300,000 | 1,000,000 | 1,000,000 | 128,000 |
 
-退出旧 Claude 会话，在项目目录先运行 `npm run bridge:restart`，再运行 `claude`。服务先启动，Claude 才能在首次发现时读到完整列表。项目设置仅在本目录及其子目录生效，其他目录中的普通 Claude 不会自动加载它。
+## 更新与启用
 
-这些限制来自官方目录，不代表逐模型的账号调用验收。请先确认官方 CodeBuddy 可调用目标模型，再执行桥接真实验收。账号是否有权使用、实际扣费以官方结果为准；桥接拒绝静默切换其他模型。
+`npm run models` 查看当前启用的模型和限制。运行 `npm run models:refresh` 先查看最新本地缓存与变更；`npm run models:refresh -- --apply` 更新经过字段白名单筛选的项目目录、本文及示例配置。需要重新获取远程目录时先打开已登录 WorkBuddy，让官方 App 刷新缓存。不会请求隐藏接口或导入完整私有配置。
 
-接入仍只接收文字与提示转换的客户端工具；上游目录的图片、原生思考能力没有在本项目中开放。pi 的美元费率为未知占位 0，不能换算 WorkBuddy 积分。最大输出是客户端声明，桥接的 `max_tokens` 通过提示传达给模型，无法强制 CLI 的原生 token 预算。
+`BRIDGE_MODELS=catalog` 自动使用随项目更新的目录。原有完整默认列表会迁移到此模式，自定义列表/别名保持不变；更新前在 .runtime 中备份。目录不再列出的模型从默认列表移除，自定义显式固定的 ID 不会被改成别的模型。
+
+更新后 pi 输入 `/reload`；HTTP 客户端运行 `npm run bridge:restart`，重开 Claude/Kimi/Codex 启动器生成最新目录。后台身份检查包括目录指纹，模型限制变化也会要求重启，不再错误复用旧预算。
+
+Claude 菜单使用 `claude-workbuddy-` 前缀别名，例如 `claude-workbuddy-glm-5.3`；实际模型 ID 保持本表原值。原服务商模型和用户默认值保留。Kimi 普通全局配置若曾复制旧目录，可在普通终端用 `npm run kimi:install -- --apply` 更新；本项目启动器每次重新生成隔离 profile。
+
+模型发现接口的 context_window / max_input_tokens 使用当前预算，catalog_max_input_tokens / catalog_max_context_window / catalog_supported_context_windows 单独列出目录上限与可选档位，避免客户端把未启用的 1M 当成实际预算。
+
+工具与公开 thinking 保留现有协议支持；图片/音频仍不接收。最大输出为目录声明，CLI 原生最大输出和采样不能由桥接完整控制。pi 美元费率 0 是未知占位，不表示免费；积分以官方账单为准。

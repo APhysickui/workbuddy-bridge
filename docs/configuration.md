@@ -12,7 +12,7 @@
 | `BRIDGE_REASONING_EFFORT` | CLI 默认推理 effort，默认 `low`；可选 `minimal` / `low` / `medium` / `high` / `xhigh` / `max`，具体效果和积分以模型为准 |
 | `BRIDGE_TOOL_TRANSPORT` | 默认 `native`，通过私有 MCP 提供原生客户端工具请求；`prompt` 为旧提示词 JSON 转换，仅供兼容调试 |
 | `BRIDGE_MAX_BODY_BYTES` | 请求大小上限，未设置时 1 MiB，init 为 2097152，最高 4 MiB |
-| `BRIDGE_MODELS` | 逗号分隔的 `公开ID=官方ID`；默认加载完整目录 |
+| `BRIDGE_MODELS` | `catalog` 自动加载项目最新目录；也可用逗号分隔的 `公开ID=官方ID` 固定自定义列表 |
 | `BRIDGE_CODEX_MODEL` | Codex 启动模型；未设置时沿用 BRIDGE_CLAUDE_MODEL 或目录默认值；也可用 --model 临时选择 |
 | `BRIDGE_CLAUDE_MODEL` | 便捷启动器及 Claude 自定义项的模型 ID，默认 V4.1 Flash |
 | `BRIDGE_CLAUDE_MODEL_NAME` | Claude 自定义项名称，例如 `DeepSeek V4.1 Flash（workbuddy）` |
@@ -26,4 +26,4 @@ Claude 透传在运行时读取 `~/.claude/settings.json` 的原服务商 URL �
 
 pi 扩展读取本项目 `.env`，通过 `workbuddy-cli` provider 在进程内调用 CLI，无需 HTTP 端口。`npm run pi:unify` 只查看全局迁移方案；`npm run pi:unify -- --apply` 才写入 `~/.pi/agent`，备份位于该目录的 `workbuddy-bridge-backups/`。安装后保留项目目录位置；移动项目后需重新注册扩展。
 
-修改 `.env` 后，HTTP 客户端应运行 `npm run bridge:restart`；pi 应 `/reload` 或退出重开。服务核对密钥、协议、CLI 路径、工具传输、推理 effort 及模型配置，配置不匹配时拒绝复用旧服务。认证关闭使用 `npm run bridge:stop`。
+修改 `.env` 后，HTTP 客户端应运行 `npm run bridge:restart`；pi 应 `/reload` 或退出重开。服务核对密钥、协议、CLI 路径、工具传输、推理 effort 、模型配置及目录指纹，配置不匹配时拒绝复用旧服务。认证关闭使用 `npm run bridge:stop`。

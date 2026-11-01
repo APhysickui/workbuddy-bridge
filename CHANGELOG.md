@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- 按 2026-11-01 官方 WorkBuddy 本机缓存重新导入 CLI 显式列表（18 项）：新增 MiniMax M3.1 Flash、Kimi K3.1 Pro、Step 5 Preview、MiMo V2.6 Pro；不再默认列出已退出当前 CLI 列表的 5 个旧入口。
+- 新增 `models:refresh` 预览/备份导入命令和 `BRIDGE_MODELS=catalog`，使后续目录更新自动反映到客户端；自定义列表与用户默认模型保留。
+- 对齐官方 CLI 的 supportedLengths/defaultLength 预算算法；区分实际默认预算、可选上限与最大输入/输出，不将 1M 上限虚报成当前启用预算。模型发现接口分别给出当前限制与 catalog 元数据。
+- 协议升级至 9，服务身份加入目录指纹，限制发生变化时拒绝复用旧后台进程。
+
 - 修复 pi 仍选中旧 `workbuddy / deepseek-v4-flash`、反复连接失效 8799 端口的问题：扩展识别本项目旧本地入口，在当前进程改用官方 CLI，并提示迁移到 `workbuddy-cli / deepseek-v4.1-flash`。保留其他服务商和全局文件；新增本机 pi 1.4.0 的旧配置启动回归。
 
 - 新增 Codex CLI 启动器、WorkBuddy 模型目录及真实短回复/文件读取验收命令，采用进程级 provider 配置，不改全局登录和原有设置。

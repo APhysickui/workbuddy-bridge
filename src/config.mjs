@@ -21,7 +21,7 @@ export function readConfig(env = process.env) {
   const toolTransport = env.BRIDGE_TOOL_TRANSPORT ?? 'native';
   if (!['native', 'prompt'].includes(toolTransport)) throw new Error('Invalid BRIDGE_TOOL_TRANSPORT');
   if (!['minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) throw new Error('Invalid BRIDGE_REASONING_EFFORT');
-  for (const entry of (env.BRIDGE_MODELS ?? DEFAULT_MODEL_ALIASES).split(',')) {
+  for (const entry of (env.BRIDGE_MODELS === 'catalog' ? DEFAULT_MODEL_ALIASES : env.BRIDGE_MODELS ?? DEFAULT_MODEL_ALIASES).split(',')) {
     const match = /^([a-zA-Z0-9_.-]+)=([a-zA-Z0-9_.-]+)$/.exec(entry.trim());
     if (!match || models.has(match[1])) throw new Error('Invalid or duplicate BRIDGE_MODELS entry');
     models.set(match[1], match[2]);

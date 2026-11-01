@@ -55,4 +55,4 @@ custom grammar 会随描述交给模型，但桥接不执行 Lark/regex 文法�
 
 `max_output_tokens`、采样、缓存参数、verbosity、reasoning summary/budget 等部分字段仅为提示或兼容声明，响应 `x-bridge-advisory-fields` 列出它们。支持的 reasoning effort 传给官方 CLI。用量未知时返回 null，不能由此推算官方积分账单。
 
-桥接协议为 8。更换源码后重启桥接即可；无需重新安装 pi / Kimi 接入。配置项参考官方页面：<https://developers.openai.com/codex/config-reference/>；Responses 事件参考：<https://platform.openai.com/docs/api-reference/responses-streaming>。
+桥接协议为 9。更换源码后重启桥接即可；无需重新安装 pi / Kimi 接入。配置项参考官方页面：<https://developers.openai.com/codex/config-reference/>；Responses 事件参考：<https://platform.openai.com/docs/api-reference/responses-streaming>。

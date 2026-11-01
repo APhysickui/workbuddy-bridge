@@ -2,7 +2,7 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-通过已登录的官方 CodeBuddy CLI，在 **Codex CLI、pi、Claude Code、Kimi Code 和本地 API 客户端**中使用 WorkBuddy 模型。模型名称带 **（workbuddy）** 后缀，pi / Claude 默认 **DeepSeek V4.1 Flash**，Kimi 启动器默认 **Kimi K3**。目录包含 19 个入口，涵盖 DeepSeek、GLM、Kimi、MiniMax、混元及官方自动档位。
+通过已登录的官方 CodeBuddy CLI，在 **Codex CLI、pi、Claude Code、Kimi Code 和本地 API 客户端**中使用 WorkBuddy 模型。模型名称带 **（workbuddy）** 后缀，pi / Claude 默认 **DeepSeek V4.1 Flash**，Kimi 启动器默认 **Kimi K3**。当前目录包含 18 个入口，涵盖 DeepSeek、GLM、Kimi、MiniMax、混元及官方自动档位。
 
 A local, experimental bridge from the official CodeBuddy CLI to Codex CLI, pi, Claude Code, Kimi Code, and OpenAI/Anthropic-compatible clients. Uses the CLI’s normal login; no desktop token extraction.
 
@@ -33,7 +33,7 @@ CODEBUDDY_BIN=/absolute/path/to/codebuddy
 在 Codex 中使用 WorkBuddy 模型和客户端工具：
 
 ```sh
-npm run bridge:restart    # 已运行旧版桥接时，先加载协议 8
+npm run bridge:restart    # 已运行旧版桥接时，先加载协议 9
 npm run codex
 npm run codex -- --model kimi-k3-1 --cwd /path/to/project
 npm run codex:check       # 真实短回复 + 随机文件读取验证，会消耗积分
@@ -166,10 +166,22 @@ npm run integration:check
 
 此命令验证 WorkBuddy 工具往返、Claude 和 pi 的文字及读取临时随机文件结果，会调用真实模型并可能消耗积分。官方 CLI 可回复不等于桥接端到端已通过。缺少本地客户端时，相应隔离客户端测试会跳过；CI 不需要账号。
 
-WorkBuddy 使用积分，pi 的美元费率 0 只是未知占位，不代表免费。积分共享、模型权限和实际价格以[官方说明](https://www.codebuddy.cn/docs/workbuddy/Pricing)及账号记录为准。模型列表是 2026-10-06 的官方目录快照，不保证每个账号都能调用。图片、音频和完整原生会话协议尚未支持；历史仍作为 JSON 对话提示提交。公开思考内容以 CLI 实际输出为准，失败不会自动切换服务商。
+WorkBuddy 使用积分，pi 的美元费率 0 只是未知占位，不代表免费。积分共享、模型权限和实际价格以[官方说明](https://www.codebuddy.cn/docs/workbuddy/Pricing)及账号记录为准。模型列表已按 2026-11-01 的官方本机缓存刷新，不保证每个账号都能调用。图片、音频和完整原生会话协议尚未支持；历史仍作为 JSON 对话提示提交。公开思考内容以 CLI 实际输出为准，失败不会自动切换服务商。
 
 `.env`、本地 Claude 设置、运行日志和私有调试记录均不应提交。参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)。采用 [MIT](LICENSE) 许可证。
 
 ## Buddy 加油站每日签到（实验性）
 
 WorkBuddy 在后台保持登录时，可尝试通过 App 自带本地通道领取每日签到积分；额度以官方活动规则为准。在普通 macOS 终端运行 `npm run credits:install`，它先验证真实签到，再安装每天 09:05、每小时补查的定时任务。仅查询用 `npm run credits:status`，移除用 `npm run credits:uninstall`。当前开发环境的本地 socket 权限受限，尚未验证真实领取；如果要求设备验证则停止，不会绕过。详见 [签到脚本说明](tools/daily-checkin/README.md)。
+
+## 更新 WorkBuddy 模型与上下文元数据
+
+官方模型上新后，先打开 WorkBuddy 使其刷新缓存，再在本项目运行：
+
+```sh
+npm run models:refresh                 # 预览新增、移除与限制变化
+npm run models:refresh -- --apply      # 白名单导入并备份，本地完整旧列表迁移到 catalog
+npm run models
+```
+
+`BRIDGE_MODELS=catalog` 随项目目录自动更新；自定义模型列表/别名保持原样。当前多数 1M 模型的 CLI 默认共享预算是 300K，桥接遵循默认预算，不把输入输出相加、也不虚报已启用 1M。具体档位与输出上限见 [模型目录](docs/models.md)。pi 更新后 `/reload`；HTTP 客户端 `npm run bridge:restart`，再重开启动器生成最新目录。
